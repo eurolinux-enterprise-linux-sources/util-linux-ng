@@ -2,7 +2,7 @@
 Summary: A collection of basic system utilities
 Name: util-linux-ng
 Version: 2.17.2
-Release: 12.24%{?dist}.1
+Release: 12.24%{?dist}.3
 License: GPLv1+ and GPLv2 and GPLv2+ and LGPLv2+ and MIT and BSD with advertising and Public Domain
 Group: System Environment/Base
 URL: ftp://ftp.kernel.org/pub/linux/utils/util-linux-ng
@@ -77,7 +77,6 @@ Requires(post): /sbin/install-info
 Requires(post): coreutils
 Requires: pam >= 1.0.90, /etc/pam.d/system-auth
 Requires: audit-libs >= 1.0.6
-Requires: kernel >= 2.6.32-642
 Requires: libuuid = %{version}-%{release}
 Requires: libblkid = %{version}-%{release}
 %if %{include_raw}
@@ -374,6 +373,11 @@ Patch120: util-linux-ng-2.17-fdisk-reorder.patch
 # 1316864 ipcmk fails with "Invalid argument" while creating a shared memory of size 2 GiB
 Patch121: util-linux-ng-2.17-ipcmk-size.patch
 
+## RHEL6.8.Z
+# RHEL6.8 check for 642 kernel without specify dependence in spec file
+Patch122: 0122-lib-linux_version-add-code-to-get-kernel-release.patch
+Patch123: 0123-login-check-kernel-version-for-proper-vhangup.patch
+
 %description
 The util-linux-ng package contains a large variety of low-level system
 utilities that are necessary for a Linux system to function. Among
@@ -584,6 +588,8 @@ cp %{SOURCE8} %{SOURCE9} .
 %patch119 -p1
 %patch120 -p1
 %patch121 -p1
+%patch122 -p1
+%patch123 -p1
 
 %build
 unset LINGUAS || :
@@ -1135,6 +1141,12 @@ fi
 
 
 %changelog
+* Thu Jan 19 2017 Karel Zak <kzak@redhat.com> 2.17.2-12.24.el6_8.3
+- update spec file
+
+* Thu Jan 19 2017 Karel Zak <kzak@redhat.com> 2.17.2-12.24.el6_8.2
+- fix #1413664 - RHEL6.8 check for 642 kernel without specify dependence in spec file
+
 * Wed Oct 12 2016 Karel Zak <kzak@redhat.com> 2.17.2-12.24.el6_8.1
 - fix #1349192 - RHEL6.8 util-linux-ng requires 642 kernel, but does not specify it as a dependency
 

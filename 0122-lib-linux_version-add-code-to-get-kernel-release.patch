@@ -1,0 +1,50 @@
+From 487efd28029b22b706550a568f8f074cb03c6078 Mon Sep 17 00:00:00 2001
+From: Karel Zak <kzak@redhat.com>
+Date: Mon, 2 Jan 2017 12:03:01 +0100
+Subject: [PATCH 122/123] lib/linux_version: add code to get kernel release
+
+Addresses: https://bugzilla.redhat.com/show_bug.cgi?id=1413664
+Signed-off-by: Karel Zak <kzak@redhat.com>
+---
+ include/linux_version.h |  1 +
+ lib/linux_version.c     | 16 ++++++++++++++++
+ 2 files changed, 17 insertions(+)
+
+diff --git a/include/linux_version.h b/include/linux_version.h
+index a6a1e99..6ab9add 100644
+--- a/include/linux_version.h
++++ b/include/linux_version.h
+@@ -10,5 +10,6 @@
+ #endif
+ 
+ int get_linux_version(void);
++int get_linux_release(void);
+ 
+ #endif /* LINUX_VERSION_H */
+diff --git a/lib/linux_version.c b/lib/linux_version.c
+index f9fbd8d..bfd612d 100644
+--- a/lib/linux_version.c
++++ b/lib/linux_version.c
+@@ -23,3 +23,19 @@ get_linux_version (void)
+ 
+ 	return kver;
+ }
++
++int
++get_linux_release(void)
++{
++	static int krel = -1;
++	struct utsname uts;
++
++	if (krel != -1)
++		return krel;
++	if (uname (&uts))
++		krel = 0;
++	else if (sscanf (uts.release, "%*d.%*d.%*d-%d", &krel) != 1)
++		krel = 0;
++
++	return krel;
++}
+-- 
+2.7.4
+

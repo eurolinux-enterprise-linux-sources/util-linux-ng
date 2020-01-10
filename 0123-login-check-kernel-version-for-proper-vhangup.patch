@@ -1,0 +1,94 @@
+From e5714f0f56028ecae799c7ad001ecb171a8deffe Mon Sep 17 00:00:00 2001
+From: Karel Zak <kzak@redhat.com>
+Date: Mon, 2 Jan 2017 12:55:17 +0100
+Subject: [PATCH 123/123] login: check kernel version for proper vhangup()
+
+This is very RHEL6.8 specific. We need to support close() before
+vhangup() semantic, but this is supported since RHEL6 kernel-2.6.32-642.
+
+It's useless to require kernel version by rpm dependence (due to
+kernel-less installations in containers, reboots to old kernels, etc),
+so let's detect the version on the fly.
+
+See also:
+http://bugzilla.redhat.com/show_bug.cgi?id=1349192
+http://bugzilla.redhat.com/show_bug.cgi?id=1023655
+
+Addresses: http://bugzilla.redhat.com/show_bug.cgi?id=1413664
+Signed-off-by: Karel Zak <kzak@redhat.com>
+---
+ login-utils/Makefile.am |  2 +-
+ login-utils/login.c     | 29 +++++++++++++++++++++--------
+ 2 files changed, 22 insertions(+), 9 deletions(-)
+
+diff --git a/login-utils/Makefile.am b/login-utils/Makefile.am
+index f592939..6761620 100644
+--- a/login-utils/Makefile.am
++++ b/login-utils/Makefile.am
+@@ -61,7 +61,7 @@ chfn_SOURCES = chfn.c $(chfn_chsh_common)
+ chsh_SOURCES = chsh.c $(chfn_chsh_common)
+ chfn_chsh_common = islocal.c setpwnam.c islocal.h my_crypt.h setpwnam.h \
+ 	../lib/env.c
+-login_SOURCES = login.c login.h my_crypt.h ../lib/setproctitle.c
++login_SOURCES = login.c login.h my_crypt.h ../lib/setproctitle.c ../lib/linux_version.c
+ newgrp_SOURCES = newgrp.c my_crypt.h
+ vipw_SOURCES = vipw.c setpwnam.h
+ 
+diff --git a/login-utils/login.c b/login-utils/login.c
+index fed9a0a..4922f5a 100644
+--- a/login-utils/login.c
++++ b/login-utils/login.c
+@@ -115,6 +115,7 @@
+ #include "login.h"
+ #include "xstrncpy.h"
+ #include "nls.h"
++#include "linux_version.h"
+ 
+ 
+ #ifdef HAVE_SECURITY_PAM_MISC_H
+@@ -534,6 +535,7 @@ main(int argc, char **argv)
+ 
+     {
+ 	struct termios tt, ttt;
++	int kver = get_linux_version();
+ 
+ 	tcgetattr(0, &tt);
+ 	ttt = tt;
+@@ -544,15 +546,26 @@ main(int argc, char **argv)
+ 	fchmod(0, TTY_MODE);
+ 
+ 	/* Kill processes left on this tty */
+-	tcsetattr(0, TCSANOW, &ttt);
+ 
+-       /*
+-	* Let's close file decriptors before vhangup
+-	* https://lkml.org/lkml/2012/6/5/145
+-	*/
+-	close(STDIN_FILENO);
+-	close(STDOUT_FILENO);
+-	close(STDERR_FILENO);
++	/*
++	 * RHEL6 backport:
++	 * The close-before-vhangup semantic is supported since rhel
++	 * kernel-2.6.32-642.
++	 */
++	if (kver > KERNEL_VERSION(2, 6, 32)
++	    || (kver == KERNEL_VERSION(2, 6, 32) && get_linux_release() >= 642))
++	{
++		tcsetattr(0, TCSANOW, &ttt);
++
++	       /*
++		* Let's close file decriptors before vhangup
++		* https://lkml.org/lkml/2012/6/5/145
++		*/
++		close(STDIN_FILENO);
++		close(STDOUT_FILENO);
++		close(STDERR_FILENO);
++	} else
++		tcsetattr(0,TCSAFLUSH,&ttt);
+ 
+ 	signal(SIGHUP, SIG_IGN); /* so vhangup() wont kill us */
+ 	vhangup();
+-- 
+2.7.4
+
