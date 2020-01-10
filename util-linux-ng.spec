@@ -2,7 +2,7 @@
 Summary: A collection of basic system utilities
 Name: util-linux-ng
 Version: 2.17.2
-Release: 12.28%{?dist}
+Release: 12.28%{?dist}.1
 License: GPLv1+ and GPLv2 and GPLv2+ and LGPLv2+ and MIT and BSD with advertising and Public Domain
 Group: System Environment/Base
 URL: ftp://ftp.kernel.org/pub/linux/utils/util-linux-ng
@@ -393,6 +393,12 @@ Patch128: 0128-lib-linux_version-add-code-to-get-kernel-release.patch
 # 1023655 - 'pppd' hangs (uninterruptable) when run on tty
 Patch129: 0129-login-check-kernel-version-for-proper-vhangup.patch
 
+#
+# RHEL6.9.Z
+#
+# 1448225 - Please add the -H option to login
+Patch130: 0130-login-add-H-option.patch
+
 %description
 The util-linux-ng package contains a large variety of low-level system
 utilities that are necessary for a Linux system to function. Among
@@ -611,6 +617,7 @@ cp %{SOURCE8} %{SOURCE9} .
 %patch127 -p1
 %patch128 -p1
 %patch129 -p1
+%patch130 -p1
 
 %build
 unset LINGUAS || :
@@ -1162,6 +1169,9 @@ fi
 
 
 %changelog
+* Tue Oct 31 2017 Karel Zak <kzak@redhat.com> 2.17.2-12.28.el6_9.1
+- fix #1448225 - Please add the -H option to login
+
 * Tue Jan 03 2017 Karel Zak <kzak@redhat.com> 2.17.2-12.28
 - remove dependence on kernel (#1349192)
 

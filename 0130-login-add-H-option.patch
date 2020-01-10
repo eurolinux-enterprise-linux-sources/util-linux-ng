@@ -1,0 +1,101 @@
+From e5a9d38393c728dc9eaba97026b6e0e97683905e Mon Sep 17 00:00:00 2001
+From: Karel Zak <kzak@redhat.com>
+Date: Tue, 31 Oct 2017 11:24:47 +0100
+Subject: [PATCH] login: add -H option
+
+Addresses: https://bugzilla.redhat.com/show_bug.cgi?id=1448225
+Signed-off-by: Karel Zak <kzak@redhat.com>
+---
+ login-utils/login.1 | 29 +++++++++++++++++++++--------
+ login-utils/login.c |  9 +++++++--
+ 2 files changed, 28 insertions(+), 10 deletions(-)
+
+diff --git a/login-utils/login.1 b/login-utils/login.1
+index 590de2aab..005c3affc 100644
+--- a/login-utils/login.1
++++ b/login-utils/login.1
+@@ -4,13 +4,20 @@
+ .SH NAME
+ login \- sign on
+ .SH SYNOPSIS
+-.BR "login [ " name " ]"
+-.br
+-.B "login \-p"
+-.br
+-.BR "login \-h " hostname
+-.br
+-.BR "login \-f " name
++.B login
++[
++.BR \-p
++] [
++.BR \-h
++.IR hostname
++] [
++.BR \-H
++] [
++.BR \-f
++.IR username
++|
++.IR username
++]
+ .SH DESCRIPTION
+ .B login
+ is used when signing onto a system.
+@@ -124,7 +131,13 @@ necessary to create a proper PAM config files (e.g.
+ and 
+ .I /etc/pam.d/remote
+ ).
+-
++.TP
++.B \-H
++Used by other servers (i.e.,
++.BR telnetd (8))
++to tell
++.B login
++that printing the hostname should be suppressed in the login: prompt.
+ .SH "SPECIAL ACCESS RESTRICTIONS"
+ The file
+ .I /etc/securetty
+diff --git a/login-utils/login.c b/login-utils/login.c
+index b01f6bb04..b0415afc3 100644
+--- a/login-utils/login.c
++++ b/login-utils/login.c
+@@ -178,6 +178,7 @@ sa_family_t hostfamily;		/* used in checktty.c */
+ char	*hostname;		/* idem */
+ static char	*username, *tty_name, *tty_number;
+ static char	thishost[100];
++static int	nohost;
+ static int	failures = 1;
+ static pid_t	pid;
+ 
+@@ -368,7 +369,7 @@ static const char *loginpam_get_prompt()
+ 	char *prompt, *dflt_prompt = _("login: ");
+ 	size_t sz;
+ 
+-	if (!*thishost)
++	if (nohost || !*thishost)
+ 		return dflt_prompt;
+ 
+ 	sz = strlen(thishost) + 1 + strlen(dflt_prompt) + 1;
+@@ -453,12 +454,16 @@ main(int argc, char **argv)
+     fflag = hflag = pflag = 0;
+     passwd_req = 1;
+ 
+-    while ((ch = getopt(argc, argv, "fh:p")) != -1)
++    while ((ch = getopt(argc, argv, "fHh:p")) != -1)
+       switch (ch) {
+ 	case 'f':
+ 	  fflag = 1;
+ 	  break;
+ 
++	case 'H':
++	  nohost = 1;
++	  break;
++
+ 	case 'h':
+ 	  if (getuid()) {
+ 	      fprintf(stderr,
+-- 
+2.13.6
+
