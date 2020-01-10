@@ -1,0 +1,130 @@
+From 2c86b24f2caa064b1337663b8233e87da0a7d53f Mon Sep 17 00:00:00 2001
+From: Karel Zak <kzak@redhat.com>
+Date: Mon, 4 Dec 2017 12:31:29 +0100
+Subject: [PATCH] login: add LOGIN_PLAIN_PROMPT to login.defs
+
+We have command line option -H to disable hostname in login prompt.
+Unfortunately, in same cases (e.g. telnetd) it's impossible to specify
+login(1) command line options due to hardcoded execl()...
+
+This patch introduces LOGIN_PLAIN_PROMPT boolean for /etc/login.defs
+to suppress hostname in the prompt.
+
+RHEL6: patch removes duplicate effective_access() from login.c, the
+       function is already in logindef.c
+
+Addresses: https://bugzilla.redhat.com/show_bug.cgi?id=1448225
+Upstream: http://github.com/karelzak/util-linux/commit/e6b32e7d1adf2a0c09743d71dfdbe2742c5884ac
+Signed-off-by: Karel Zak <kzak@redhat.com>
+---
+ login-utils/Makefile.am |  3 ++-
+ login-utils/login.1     | 20 ++++++++++++++++++++
+ login-utils/login.c     | 20 ++++----------------
+ login-utils/logindefs.c |  1 -
+ 4 files changed, 26 insertions(+), 18 deletions(-)
+
+diff --git a/login-utils/Makefile.am b/login-utils/Makefile.am
+index 6761620d8..4da3ed555 100644
+--- a/login-utils/Makefile.am
++++ b/login-utils/Makefile.am
+@@ -61,7 +61,8 @@ chfn_SOURCES = chfn.c $(chfn_chsh_common)
+ chsh_SOURCES = chsh.c $(chfn_chsh_common)
+ chfn_chsh_common = islocal.c setpwnam.c islocal.h my_crypt.h setpwnam.h \
+ 	../lib/env.c
+-login_SOURCES = login.c login.h my_crypt.h ../lib/setproctitle.c ../lib/linux_version.c
++login_SOURCES = login.c login.h my_crypt.h ../lib/setproctitle.c ../lib/linux_version.c \
++		logindefs.c logindefs.h
+ newgrp_SOURCES = newgrp.c my_crypt.h
+ vipw_SOURCES = vipw.c setpwnam.h
+ 
+diff --git a/login-utils/login.1 b/login-utils/login.1
+index 005c3affc..8c28b5077 100644
+--- a/login-utils/login.1
++++ b/login-utils/login.1
+@@ -138,6 +138,26 @@ Used by other servers (i.e.,
+ to tell
+ .B login
+ that printing the hostname should be suppressed in the login: prompt.
++See also LOGIN_PLAIN_PROMPT below if your server does not allow to configure
++.B login
++command line.
++.SH CONFIG FILE ITEMS
++.B login
++reads the
++.IR /etc\:/login.defs (5)
++configuration file.  This support has been backported to RHEL6 and it's limited to the options described below.
++Note that the configuration file could be distributed with another package (e.g. shadow-utils).
++The following configuration items are relevant for
++.BR login (1):
++.PP
++.B LOGIN_PLAIN_PROMPT
++(boolean)
++.RS 4
++Tell login that printing the hostname should be suppressed in the login:
++prompt.  This is alternative to the \fB\-H\fR command line option.  The default
++value is
++.IR no .
++.RE
+ .SH "SPECIAL ACCESS RESTRICTIONS"
+ The file
+ .I /etc/securetty
+diff --git a/login-utils/login.c b/login-utils/login.c
+index b0415afc3..519eeb164 100644
+--- a/login-utils/login.c
++++ b/login-utils/login.c
+@@ -116,6 +116,7 @@
+ #include "xstrncpy.h"
+ #include "nls.h"
+ #include "linux_version.h"
++#include "logindefs.h"
+ 
+ 
+ #ifdef HAVE_SECURITY_PAM_MISC_H
+@@ -369,7 +370,9 @@ static const char *loginpam_get_prompt()
+ 	char *prompt, *dflt_prompt = _("login: ");
+ 	size_t sz;
+ 
+-	if (nohost || !*thishost)
++	if (nohost
++	    || !*thishost
++	    || getlogindefs_bool("LOGIN_PLAIN_PROMPT", 0) == 1)
+ 		return dflt_prompt;
+ 
+ 	sz = strlen(thishost) + 1 + strlen(dflt_prompt) + 1;
+@@ -382,21 +385,6 @@ static const char *loginpam_get_prompt()
+ }
+ #endif
+ 
+-/*
+- * We need to check effective UID/GID. For example $HOME could be on root
+- * squashed NFS or on NFS with UID mapping and access(2) uses real UID/GID.
+- * The open(2) seems as the surest solution.
+- * -- kzak@redhat.com (10-Apr-2009)
+- */
+-int
+-effective_access(const char *path, int mode)
+-{
+-	int fd = open(path, mode);
+-	if (fd != -1)
+-		close(fd);
+-	return fd == -1 ? -1 : 0;
+-}
+-
+ int
+ main(int argc, char **argv)
+ {
+diff --git a/login-utils/logindefs.c b/login-utils/logindefs.c
+index a91db05f5..7b84229c5 100644
+--- a/login-utils/logindefs.c
++++ b/login-utils/logindefs.c
+@@ -277,7 +277,6 @@ int effective_access(const char *path, int mode)
+ 	return fd == -1 ? -1 : 0;
+ }
+ 
+-
+ /*
+  * Check the per-account or the global hush-login setting.
+  *
+-- 
+2.13.6
+
