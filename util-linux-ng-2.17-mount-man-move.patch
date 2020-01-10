@@ -1,0 +1,15 @@
+diff -up util-linux-ng-2.17.2/mount/mount.8.kzak util-linux-ng-2.17.2/mount/mount.8
+--- util-linux-ng-2.17.2/mount/mount.8.kzak	2016-01-07 11:59:03.349545321 +0100
++++ util-linux-ng-2.17.2/mount/mount.8	2016-01-07 12:20:19.308183825 +0100
+@@ -378,6 +378,11 @@ or shortoption
+ .RE
+ This will cause the contents which previously appeared under olddir to be
+ accessed under newdir.  The physical location of the files is not changed.
++
++Note also that moving a mount residing under a shared mount is invalid and
++unsupported (in the other words the parent of the \fIolddir\fR has to use
++private propagation flag).  See /proc/self/mountinfo for the current
++propagation flags.
+ .RE
+ 
+ .B The shared subtrees operations.

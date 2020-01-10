@@ -1,0 +1,12 @@
+diff -up util-linux-ng-2.17.2/hwclock/hwclock.c.kzak util-linux-ng-2.17.2/hwclock/hwclock.c
+--- util-linux-ng-2.17.2/hwclock/hwclock.c.kzak	2016-01-11 09:33:51.751567966 +0100
++++ util-linux-ng-2.17.2/hwclock/hwclock.c	2016-01-11 09:34:35.414107852 +0100
+@@ -1877,7 +1877,7 @@ hwaudit_exit(int status)
+ {
+ 	if (hwaudit_on) {
+ 		audit_log_user_message(hwaudit_fd, AUDIT_USYS_CONFIG,
+-			"changing system time", NULL, NULL, NULL, status ? 0 : 1);
++			"op=change-system-time", NULL, NULL, NULL, status ? 0 : 1);
+ 		close(hwaudit_fd);
+ 	}
+ 	exit(status);

@@ -1,0 +1,78 @@
+diff -up util-linux-ng-2.17.2/schedutils/ionice.1.kzak util-linux-ng-2.17.2/schedutils/ionice.1
+--- util-linux-ng-2.17.2/schedutils/ionice.1.kzak	2010-03-18 23:11:23.000000000 +0100
++++ util-linux-ng-2.17.2/schedutils/ionice.1	2016-01-04 12:16:03.854049133 +0100
+@@ -56,7 +56,7 @@ will receive on each scheduling window.
+ permitted for an ordinary (i.e., non-root) user.
+ .SH OPTIONS
+ .IP "\fB-c \fIclass\fP"
+-The scheduling class. \fI0\fR for none, \fI1\fR for real time, \fI2\fR for
++The scheduling class name or number. \fI0\fR for none, \fI1\fR for realtime, \fI2\fR for
+ best-effort, \fI3\fR for idle.
+ .IP "\fB-n \fIclassdata\fP"
+ The scheduling class data. This defines the class data, if the class
+diff -up util-linux-ng-2.17.2/schedutils/ionice.c.kzak util-linux-ng-2.17.2/schedutils/ionice.c
+--- util-linux-ng-2.17.2/schedutils/ionice.c.kzak	2010-03-22 09:15:54.000000000 +0100
++++ util-linux-ng-2.17.2/schedutils/ionice.c	2016-01-04 12:16:03.854049133 +0100
+@@ -8,6 +8,7 @@
+  */
+ #include <stdio.h>
+ #include <stdlib.h>
++#include <strings.h>
+ #include <errno.h>
+ #include <getopt.h>
+ #include <unistd.h>
+@@ -15,8 +16,11 @@
+ #include <sys/syscall.h>
+ #include <asm/unistd.h>
+ #include <err.h>
++#include <ctype.h>
+ 
++#include "c.h"
+ #include "nls.h"
++#include "strutils.h"
+ 
+ static int tolerant;
+ 
+@@ -65,6 +69,15 @@ static void ioprio_print(int pid)
+ 	}
+ }
+ 
++static int parse_ioclass(const char *str)
++{
++	int i;
++
++	for (i = 0; i < ARRAY_SIZE(to_prio); i++)
++		if (!strcasecmp(str, to_prio[i]))
++			return i;
++	return -1;
++}
+ 
+ static void ioprio_setpid(pid_t pid, int ioprio, int ioclass)
+ {
+@@ -129,7 +142,14 @@ int main(int argc, char *argv[])
+ 			set |= 1;
+ 			break;
+ 		case 'c':
+-			ioclass = getnum(optarg);
++			if (isdigit(*optarg))
++				ioclass = strtol_or_err(optarg,
++					_("failed to parse class"));
++			else {
++				ioclass = parse_ioclass(optarg);
++				if (ioclass < 0)
++					errx(EXIT_FAILURE, _("unknown scheduling class: '%s'"), optarg);
++			}
+ 			set |= 2;
+ 			break;
+ 		case 'p':
+diff -up util-linux-ng-2.17.2/schedutils/Makefile.am.kzak util-linux-ng-2.17.2/schedutils/Makefile.am
+--- util-linux-ng-2.17.2/schedutils/Makefile.am.kzak	2016-01-04 12:18:09.576189585 +0100
++++ util-linux-ng-2.17.2/schedutils/Makefile.am	2016-01-04 12:18:29.431053839 +0100
+@@ -8,6 +8,7 @@ dist_man_MANS = chrt.1
+ if HAVE_IOPRIO_GET
+ if HAVE_IOPRIO_SET
+ usrbin_exec_PROGRAMS += ionice
++ionice_SOURCES = ionice.c $(top_srcdir)/lib/strutils.c
+ dist_man_MANS += ionice.1
+ endif
+ endif

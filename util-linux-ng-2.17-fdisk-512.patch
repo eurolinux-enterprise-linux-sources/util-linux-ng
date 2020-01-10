@@ -1,0 +1,66 @@
+From 7d22c8e27c4720010d464b7b6c677bc305d74e35 Mon Sep 17 00:00:00 2001
+From: Karel Zak <kzak@redhat.com>
+Date: Mon, 23 Aug 2010 13:13:36 +0200
+Subject: [PATCH] fdisk: fix alignment check for non-512-byte logical sectors
+
+ # modprobe scsi_debug dev_size_mb=1024 sector_size=4096
+
+ # fdisk /dev/sdb
+
+  Command (m for help): n
+  Command action
+    e   extended
+    p   primary partition (1-4)
+  p
+  Partition number (1-4, default 1):
+  Using default value 1
+  First sector (256-262143, default 256): 257
+  Last sector, +sectors or +size{K,M,G} (257-262143, default 262143): +100M
+
+  Command (m for help): p
+
+  Disk /dev/sdb: 1073 MB, 1073741824 bytes
+  32 heads, 32 sectors/track, 256 cylinders, total 262144 sectors
+  Units = sectors of 1 * 4096 = 4096 bytes
+  Sector size (logical/physical): 4096 bytes / 4096 bytes
+  I/O size (minimum/optimal): 4096 bytes / 262144 bytes
+  Disk identifier: 0x16db2bb0
+
+    Device Boot      Start         End      Blocks   Id  System
+  /dev/sdb1            257       25855      102396   83  Linux
+  Partition 1 does not start on physical sector boundary.
+  ^^^^^^^^
+
+ The warning is nonsense. The logical and physical sector size is the
+ same. It means that every LBA is always aligned to physical sector
+ boundary.
+
+ Note that this bug does not mean that fdisk produces unaligned
+ partitions. The problem is that fdisk forces to use bigger gaps
+ between aligned LBAs, for example:
+
+   correctly aligned LBA are: 256, 257, 258, ...  [N+1]
+   fdisk assumes:             256, 264, 272, ...  [N+(sector_size/512)]
+
+Reported-by: JOB NELSON <job_nelson@hotmail.com>
+Signed-off-by: Karel Zak <kzak@redhat.com>
+---
+ fdisk/fdisk.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
+
+diff --git a/fdisk/fdisk.c b/fdisk/fdisk.c
+index 93eece6..6829321 100644
+--- a/fdisk/fdisk.c
++++ b/fdisk/fdisk.c
+@@ -659,7 +659,7 @@ static int
+ lba_is_aligned(unsigned long long lba)
+ {
+ 	unsigned int granularity = max(phy_sector_size, min_io_size);
+-	unsigned long long offset = (lba << 9) & (granularity - 1);
++	unsigned long long offset = (lba * sector_size) & (granularity - 1);
+ 
+ 	return !((granularity + alignment_offset - offset) & (granularity - 1));
+ }
+-- 
+1.7.3.3
+

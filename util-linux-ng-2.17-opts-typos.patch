@@ -1,0 +1,30 @@
+diff -up util-linux-ng-2.17.2/misc-utils/findmnt.c.kzak util-linux-ng-2.17.2/misc-utils/findmnt.c
+--- util-linux-ng-2.17.2/misc-utils/findmnt.c.kzak	2016-03-08 11:39:00.996400246 +0100
++++ util-linux-ng-2.17.2/misc-utils/findmnt.c	2016-03-08 11:44:49.598921954 +0100
+@@ -586,7 +586,10 @@ int main(int argc, char *argv[])
+ 	    { "output",       1, 0, 'o' },
+ 	    { "raw",          0, 0, 'r' },
+ 	    { "types",        1, 0, 't' },
+-	    { "fsroot",       0, 0, 'v' },
++
++	    { "nofsroot",     0, 0, 'v' },
++	    { "fsroot",       0, 0, 'v' },	/* RHEL6: typo, backward compatibility */
++
+ 	    { "submounts",    0, 0, 'R' },
+ 	    { "source",       1, 0, 'S' },
+ 	    { "target",       1, 0, 'T' },
+diff -up util-linux-ng-2.17.2/sys-utils/fallocate.c.kzak util-linux-ng-2.17.2/sys-utils/fallocate.c
+--- util-linux-ng-2.17.2/sys-utils/fallocate.c.kzak	2016-03-08 11:39:01.028400021 +0100
++++ util-linux-ng-2.17.2/sys-utils/fallocate.c	2016-03-08 11:43:28.799496864 +0100
+@@ -125,7 +125,10 @@ int main(int argc, char **argv)
+ 	    { "keep-size", 0, 0, 'n' },
+ 	    { "punch-hole", 0, 0, 'p' },
+ 	    { "offset",    1, 0, 'o' },
+-	    { "lenght",    1, 0, 'l' },
++
++	    { "length",    1, 0, 'l' },
++	    { "lenght",    1, 0, 'l' },		/* RHEL6: typo, backward compatibility */
++
+ 	    { NULL,        0, 0, 0 }
+ 	};
+ 

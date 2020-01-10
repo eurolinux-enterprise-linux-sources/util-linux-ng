@@ -1,0 +1,12 @@
+diff -up util-linux-ng-2.17.2/mount/mount.c.kzak util-linux-ng-2.17.2/mount/mount.c
+--- util-linux-ng-2.17.2/mount/mount.c.kzak	2011-01-17 13:49:41.000000000 +0100
++++ util-linux-ng-2.17.2/mount/mount.c	2011-01-17 13:50:57.000000000 +0100
+@@ -1156,7 +1156,7 @@ loop_check(const char **spec, const char
+       if (verbose)
+ 	printf(_("mount: skipping the setup of a loop device\n"));
+     } else {
+-      int loop_opts = SETLOOP_AUTOCLEAR; /* always attempt autoclear */
++      int loop_opts = 0;	/* disabled for RHEL: SETLOOP_AUTOCLEAR; */
+       int res;
+ 
+       if (*flags & MS_RDONLY)

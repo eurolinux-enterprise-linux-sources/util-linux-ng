@@ -1,0 +1,12 @@
+diff -up util-linux-ng-2.17.2/text-utils/tailf.1.kzak util-linux-ng-2.17.2/text-utils/tailf.1
+--- util-linux-ng-2.17.2/text-utils/tailf.1.kzak	2011-08-10 15:10:57.745834369 +0200
++++ util-linux-ng-2.17.2/text-utils/tailf.1	2011-08-10 15:09:47.148937656 +0200
+@@ -44,7 +44,7 @@ battery life.
+ .PP
+ Mandatory arguments to long options are mandatory for short options too.
+ .TP
+-\fB\-n\fR, \fB\-\-lines\fR=\fIN\fR, \fB\-N\fR
++\fB\-n\fR, \fB\-\-lines\fR \fIN\fR, \fB\-N\fR
+ output the last
+ .I N
+ lines, instead of the last 10.

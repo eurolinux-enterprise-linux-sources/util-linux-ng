@@ -1,0 +1,14 @@
+diff -up util-linux-ng-2.17.2/fdisk/fdisk.c.kzak util-linux-ng-2.17.2/fdisk/fdisk.c
+--- util-linux-ng-2.17.2/fdisk/fdisk.c.kzak	2012-03-05 09:58:52.500139919 +0100
++++ util-linux-ng-2.17.2/fdisk/fdisk.c	2012-03-05 10:00:11.860456029 +0100
+@@ -2843,9 +2843,7 @@ try(char *device, int user_specified) {
+ 		} else if (gb < 0) { /* no DOS signature */
+ 			list_disk_geometry();
+ 			if (!aix_label && !mac_label && btrydev(device) < 0)
+-				fprintf(stderr,
+-					_("Disk %s doesn't contain a valid "
+-					  "partition table\n"), device);
++				; /* nothing, no aix, mac or bsd signature */
+ 		} else {
+ 			list_table(0);
+ 		}

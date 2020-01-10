@@ -1,0 +1,78 @@
+diff -up util-linux-ng-2.17.2/fdisk/fdisk.c.kzak util-linux-ng-2.17.2/fdisk/fdisk.c
+--- util-linux-ng-2.17.2/fdisk/fdisk.c.kzak	2016-01-11 10:33:07.315614386 +0100
++++ util-linux-ng-2.17.2/fdisk/fdisk.c	2016-01-11 10:30:49.760684046 +0100
+@@ -1373,11 +1373,11 @@ read_hex(struct systypes *sys)
+         }
+ }
+ 
+-static unsigned int
+-read_int_sx(unsigned int low, unsigned int dflt, unsigned int high,
+-	 unsigned int base, char *mesg, int *suffix)
++static unsigned long long
++read_int_sx(unsigned long long low, unsigned long long dflt, unsigned long long high,
++	 unsigned long long base, char *mesg, int *suffix)
+ {
+-	unsigned int i;
++	unsigned long long i;
+ 	int default_ok = 1;
+ 	static char *ms = NULL;
+ 	static int mslen = 0;
+@@ -1392,10 +1392,10 @@ read_int_sx(unsigned int low, unsigned i
+ 		default_ok = 0;
+ 
+ 	if (default_ok)
+-		snprintf(ms, mslen, _("%s (%u-%u, default %u): "),
++		snprintf(ms, mslen, _("%s (%llu-%llu, default %llu): "),
+ 			 mesg, low, high, dflt);
+ 	else
+-		snprintf(ms, mslen, "%s (%u-%u): ",
++		snprintf(ms, mslen, "%s (%llu-%llu): ",
+ 			 mesg, low, high);
+ 
+ 	while (1) {
+@@ -1411,7 +1411,7 @@ read_int_sx(unsigned int low, unsigned i
+ 			int absolute = 0;
+ 			int suflen;
+ 
+-			i = atoi(line_ptr+1);
++			i = atoll(line_ptr+1);
+ 
+ 			while (isdigit(*++line_ptr))
+ 				use_default = 0;
+@@ -1488,7 +1488,7 @@ read_int_sx(unsigned int low, unsigned i
+ 			}
+ 		}
+ 		if (use_default)
+-			printf(_("Using default value %u\n"), i = dflt);
++			printf(_("Using default value %llu\n"), i = dflt);
+ 		if (i >= low && i <= high)
+ 			break;
+ 		else
+@@ -1504,9 +1504,9 @@ read_int_sx(unsigned int low, unsigned i
+  *
+  * There is no default if DFLT is not between LOW and HIGH.
+  */
+-unsigned int
+-read_int(unsigned int low, unsigned int dflt, unsigned int high,
+-	 unsigned int base, char *mesg)
++unsigned long long
++read_int(unsigned long long low, unsigned long long dflt, unsigned long long high,
++	 unsigned long long base, char *mesg)
+ {
+ 	return read_int_sx(low, dflt, high, base, mesg, NULL);
+ }
+diff -up util-linux-ng-2.17.2/fdisk/fdisk.h.kzak util-linux-ng-2.17.2/fdisk/fdisk.h
+--- util-linux-ng-2.17.2/fdisk/fdisk.h.kzak	2016-01-11 10:25:18.018144345 +0100
++++ util-linux-ng-2.17.2/fdisk/fdisk.h	2016-01-11 10:26:25.793646632 +0100
+@@ -73,8 +73,9 @@ extern int read_hex(struct systypes *sys
+ extern void reread_partition_table(int leave);
+ extern struct partition *get_part_table(int);
+ extern int valid_part_table_flag(unsigned char *b);
+-extern unsigned int read_int(unsigned int low, unsigned int dflt,
+-			     unsigned int high, unsigned int base, char *mesg);
++
++extern unsigned long long read_int(unsigned long long low, unsigned long long dflt,
++			     unsigned long long high, unsigned long long base, char *mesg);
+ 
+ extern unsigned char *MBRbuffer;
+ extern void zeroize_mbr_buffer(void);

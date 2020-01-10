@@ -1,0 +1,63 @@
+From e8fc977aba09ddbd89b25276fd777c3f0eef9299 Mon Sep 17 00:00:00 2001
+From: Karel Zak <kzak@redhat.com>
+Date: Tue, 23 Nov 2010 19:49:58 +0100
+Subject: [PATCH] libblkid: cache is incorrectly revalidated
+
+for example:
+
+	# echo "password" | cryptsetup luksFormat /dev/loop7
+	# blkid /dev/loop7
+	/dev/loop7: UUID="09240a80-1cf1-456d-9a6e-a35b39dc1f2b" TYPE="crypto_LUKS"
+
+	# pvcreate -ff /dev/loop7
+	# blkid /dev/loop7
+	#
+
+the second blkid call has to return info about LVM.
+
+Reported-by: Milan Broz <mbroz@redhat.com>
+Signed-off-by: Karel Zak <kzak@redhat.com>
+---
+ shlibs/blkid/src/blkidP.h |    2 +-
+ shlibs/blkid/src/probe.c  |    9 ++++-----
+ 2 files changed, 5 insertions(+), 6 deletions(-)
+
+diff --git a/shlibs/blkid/src/blkidP.h b/shlibs/blkid/src/blkidP.h
+index 6ac8910..956a84e 100644
+--- a/shlibs/blkid/src/blkidP.h
++++ b/shlibs/blkid/src/blkidP.h
+@@ -437,7 +437,7 @@ extern size_t blkid_rtrim_whitespace(unsigned char *str);
+ 		((bmp)[ blkid_bmp_idx_byte(item) ] |= blkid_bmp_idx_bit(item))
+ 
+ #define blkid_bmp_unset_item(bmp, item)	\
+-		((bmp)[ bmp_idx_byte(item) ] &= ~bmp_idx_bit(item))
++		((bmp)[ blkid_bmp_idx_byte(item) ] &= ~blkid_bmp_idx_bit(item))
+ 
+ #define blkid_bmp_get_item(bmp, item)	\
+ 		((bmp)[ blkid_bmp_idx_byte(item) ] & blkid_bmp_idx_bit(item))
+diff --git a/shlibs/blkid/src/probe.c b/shlibs/blkid/src/probe.c
+index 3698b99..33e2fe1 100644
+--- a/shlibs/blkid/src/probe.c
++++ b/shlibs/blkid/src/probe.c
+@@ -431,14 +431,13 @@ int __blkid_probe_invert_filter(blkid_probe pr, int chain)
+ 	struct blkid_chain *chn;
+ 	unsigned long *fltr;
+ 
+-	fltr = blkid_probe_get_filter(pr, chain, FALSE);
+-	if (!fltr)
+-		return -1;
+-
+ 	chn = &pr->chains[chain];
+ 
++	if (!chn->driver->has_fltr || !chn->fltr)
++		return -1;
++
+ 	for (i = 0; i < blkid_bmp_nwords(chn->driver->nidinfos); i++)
+-		fltr[i] = ~fltr[i];
++		chn->fltr[i] = ~chn->fltr[i];
+ 
+ 	DBG(DEBUG_LOWPROBE, printf("probing filter inverted\n"));
+ 	/* blkid_probe_dump_filter(pr, chain); */
+-- 
+1.7.3.3
+

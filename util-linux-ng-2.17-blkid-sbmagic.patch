@@ -1,0 +1,33 @@
+From 23489c26252f1c40407804e0cd4964835db18e8c Mon Sep 17 00:00:00 2001
+From: Karel Zak <kzak@redhat.com>
+Date: Tue, 7 Sep 2010 11:30:50 +0200
+Subject: [PATCH] libblkid: don't ignore zero for SBMAGIC_OFFSET
+
+The side effect of this bug is that wipefs(8) does not report LUKS...
+
+Signed-off-by: Karel Zak <kzak@redhat.com>
+---
+ shlibs/blkid/src/superblocks/superblocks.c |    7 +++----
+ 1 files changed, 3 insertions(+), 4 deletions(-)
+
+diff --git a/shlibs/blkid/src/superblocks/superblocks.c b/shlibs/blkid/src/superblocks/superblocks.c
+index 3d66d98..95c10d6 100644
+--- a/shlibs/blkid/src/superblocks/superblocks.c
++++ b/shlibs/blkid/src/superblocks/superblocks.c
+@@ -487,10 +487,9 @@ int blkid_probe_set_magic(blkid_probe pr, blkid_loff_t offset,
+ 	int rc = 0;
+ 	struct blkid_chain *chn = blkid_probe_get_chain(pr);
+ 
+-	if (chn->flags & BLKID_SUBLKS_MAGIC) {
+-		if (magic && len)
+-			rc = blkid_probe_set_value(pr, "SBMAGIC", magic, len);
+-		if (!rc && offset)
++	if (magic && len && (chn->flags & BLKID_SUBLKS_MAGIC)) {
++		rc = blkid_probe_set_value(pr, "SBMAGIC", magic, len);
++		if (!rc)
+ 			rc = blkid_probe_sprintf_value(pr, "SBMAGIC_OFFSET",
+ 					"%llu",	offset);
+ 	}
+-- 
+1.7.3.3
+

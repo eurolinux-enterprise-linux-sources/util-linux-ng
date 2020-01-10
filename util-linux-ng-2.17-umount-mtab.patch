@@ -1,0 +1,64 @@
+
+Backport from upstream:
+
+	commit d5bf8095091c2861ef2d60ceff4eba8049bb16af
+	Author: Karel Zak <kzak@redhat.com>
+	Date:   Wed Apr 13 10:11:50 2011 +0200
+
+	umount: block signals when umounting and updating mtab (CVE-2011-1676, CVE-2011-1677)
+
+	http://thread.gmane.org/gmane.comp.security.oss.general/4374
+
+	Based on CVE-2011-1089.
+
+	Signed-off-by: Karel Zak <kzak@redhat.com>
+
+
+diff -up util-linux-ng-2.17.2/mount/umount.c.kzak util-linux-ng-2.17.2/mount/umount.c
+--- util-linux-ng-2.17.2/mount/umount.c.kzak	2011-09-15 12:07:39.776923806 +0200
++++ util-linux-ng-2.17.2/mount/umount.c	2011-09-15 12:16:07.227227176 +0200
+@@ -226,6 +226,8 @@ umount_one (const char *spec, const char
+ 	if (check_special_umountprog(spec, node, type, &status))
+ 		return status;
+ 
++	block_signals(SIG_BLOCK);
++
+ 	/* Skip the actual umounting for --fake */
+ 	if (fake)
+ 		goto writemtab;
+@@ -266,15 +268,21 @@ umount_one (const char *spec, const char
+ 		res = mount(spec, node, NULL,
+ 			    MS_MGC_VAL | MS_REMOUNT | MS_RDONLY, NULL);
+ 		if (res == 0) {
+-			struct my_mntent remnt;
+ 			fprintf(stderr,
+ 				_("umount: %s busy - remounted read-only\n"),
+ 				spec);
+-			remnt.mnt_type = remnt.mnt_fsname = NULL;
+-			remnt.mnt_dir = xstrdup(node);
+-			remnt.mnt_opts = xstrdup("ro");
+-			if (!nomtab)
++			if (mc && !nomtab) {
++				/* update mtab if the entry is there */
++				struct my_mntent remnt;
++				remnt.mnt_fsname = mc->m.mnt_fsname;
++				remnt.mnt_dir = mc->m.mnt_dir;
++				remnt.mnt_type = mc->m.mnt_type;
++				remnt.mnt_opts = "ro";
++				remnt.mnt_freq = 0;
++				remnt.mnt_passno = 0;
+ 				update_mtab(node, &remnt);
++			}
++			block_signals(SIG_UNBLOCK);
+ 			return 0;
+ 		} else if (errno != EBUSY) { 	/* hmm ... */
+ 			perror("remount");
+@@ -332,6 +340,8 @@ umount_one (const char *spec, const char
+ 		update_mtab (node, NULL);
+ 	}
+ 
++	block_signals(SIG_UNBLOCK);
++
+ 	if (res >= 0)
+ 		return 0;
+ 	if (umnt_err)

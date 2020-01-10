@@ -1,0 +1,33 @@
+From 68d30ea1bff878879533c2c5c2c7fa8a9f2b2657 Mon Sep 17 00:00:00 2001
+From: Karel Zak <kzak@redhat.com>
+Date: Thu, 27 Jan 2011 14:04:18 +0100
+Subject: [PATCH] mount: fix atime description in mount.8 man page
+
+Addresses: https://bugzilla.redhat.com/show_bug.cgi?id=665376
+Signed-off-by: Karel Zak <kzak@redhat.com>
+---
+ mount/mount.8 |    7 +++++--
+ 1 files changed, 5 insertions(+), 2 deletions(-)
+
+diff --git a/mount/mount.8 b/mount/mount.8
+index 6336d82..73622b0 100644
+--- a/mount/mount.8
++++ b/mount/mount.8
+@@ -785,9 +785,12 @@ All I/O to the filesystem should be done asynchronously. (See also the
+ option.)
+ .TP
+ .B atime
+-Update inode access time for each access. See also the
++Do not use noatime feature, then the inode access time is controlled by kernel
++defaults. See also the description for
+ .B strictatime
+-mount option.
++and
++.B reatime
++mount options.
+ .TP
+ .B noatime
+ Do not update inode access times on this filesystem (e.g, for faster
+-- 
+1.7.3.4
+

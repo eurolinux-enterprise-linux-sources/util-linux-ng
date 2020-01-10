@@ -1,0 +1,11 @@
+diff -up util-linux-ng-2.17.2/disk-utils/mkfs.8.kzak util-linux-ng-2.17.2/disk-utils/mkfs.8
+--- util-linux-ng-2.17.2/disk-utils/mkfs.8.kzak	2010-02-04 12:53:55.000000000 +0100
++++ util-linux-ng-2.17.2/disk-utils/mkfs.8	2011-01-12 11:23:23.000000000 +0100
+@@ -104,6 +104,7 @@ for the ext2 file system.
+ .BR mkfs.bfs (8),
+ .BR mkfs.ext2 (8),
+ .BR mkfs.ext3 (8),
++.BR mkfs.ext4 (8),
+ .BR mkfs.minix (8),
+ .BR mkfs.msdos (8),
+ .BR mkfs.vfat (8),

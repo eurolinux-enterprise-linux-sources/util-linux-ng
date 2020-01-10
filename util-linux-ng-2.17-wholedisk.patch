@@ -1,0 +1,41 @@
+From 2fa3fbe858fe194069a30b1b991b2473d4edc307 Mon Sep 17 00:00:00 2001
+From: Karel Zak <kzak@redhat.com>
+Date: Thu, 17 Feb 2011 11:02:26 +0100
+Subject: [PATCH] fdisk: more robust whole-disk detection
+
+In lib/wholedisk.c, i is set to 0. If fd was a -1, then at
+line 18 geometry.start is used without it being initialized.
+
+Reported-by: Steve Grubb <sgrubb@redhat.com>
+Signed-off-by: Karel Zak <kzak@redhat.com>
+---
+ lib/wholedisk.c |   13 ++++++-------
+ 1 files changed, 6 insertions(+), 7 deletions(-)
+
+diff --git a/lib/wholedisk.c b/lib/wholedisk.c
+index 35f143d..4a53052 100644
+--- a/lib/wholedisk.c
++++ b/lib/wholedisk.c
+@@ -9,13 +9,12 @@
+ int is_whole_disk_fd(int fd, const char *name)
+ {
+ #ifdef HDIO_GETGEO
+-	struct hd_geometry geometry;
+-	int i = 0;
+-
+-	if (fd != -1)
+-		i = ioctl(fd, HDIO_GETGEO, &geometry);
+-	if (i == 0)
+-		return geometry.start == 0;
++	if (fd != -1) {
++		struct hd_geometry geometry;
++		int i = ioctl(fd, HDIO_GETGEO, &geometry);
++		if (i == 0)
++			return geometry.start == 0;
++	}
+ #endif
+ 	/*
+ 	 * The "silly heuristic" is still sexy for us, because
+-- 
+1.7.3.4
+

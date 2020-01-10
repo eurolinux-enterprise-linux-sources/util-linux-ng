@@ -1,0 +1,139 @@
+
+Backport from upstream:
+
+	commit ceb012522c6c767a9c072705dd7b245cc696d1db
+	Author: Karel Zak <kzak@redhat.com>
+	Date:   Tue Apr 12 22:52:33 2011 +0200
+
+	mount: use fflush() and temporary file for mtab updates (CVE-2011-1089)
+
+	http://thread.gmane.org/gmane.comp.security.oss.general/4374
+
+	Changes:
+
+	- force mount(8) to use /etc/mtab.tmp file every time. The original
+	  code used the tmp file for remount/move operations only.
+
+	- call and check fflush() return code for the tmp file
+
+	Note mount(8) blocks all signals when writing to mtab, so it's not
+	affected by SIGXFSZ and the mtab lock file is always removed.
+
+	This patch does not fix the same issue in umount(8) and libmount.
+
+	Signed-off-by: Karel Zak <kzak@redhat.com>
+
+
+diff -up util-linux-ng-2.17.2/mount/fstab.c.kzak util-linux-ng-2.17.2/mount/fstab.c
+--- util-linux-ng-2.17.2/mount/fstab.c.kzak	2011-09-15 11:53:57.484831920 +0200
++++ util-linux-ng-2.17.2/mount/fstab.c	2011-09-15 11:59:51.107174827 +0200
+@@ -773,7 +773,7 @@ update_mtab (const char *dir, struct my_
+ 	mntFILE *mfp, *mftmp;
+ 	const char *fnam = _PATH_MOUNTED;
+ 	struct mntentchn mtabhead;	/* dummy */
+-	struct mntentchn *mc, *mc0, *absent = NULL;
++	struct mntentchn *mc, *mc0 = NULL, *absent = NULL;
+ 	struct stat sbuf;
+ 	int fd;
+ 
+@@ -797,10 +797,12 @@ update_mtab (const char *dir, struct my_
+ 	read_mntentchn(mfp, fnam, mc);
+ 
+ 	/* find last occurrence of dir */
+-	for (mc = mc0->prev; mc && mc != mc0; mc = mc->prev)
+-		if (streq(mc->m.mnt_dir, dir))
+-			break;
+-	if (mc && mc != mc0) {
++	if (dir) {
++		for (mc = mc0->prev; mc && mc != mc0; mc = mc->prev)
++			if (streq(mc->m.mnt_dir, dir))
++				break;
++	}
++	if (dir && mc && mc != mc0) {
+ 		if (instead == NULL) {
+ 			/* An umount - remove entry */
+ 			if (mc && mc != mc0) {
+@@ -846,19 +848,32 @@ update_mtab (const char *dir, struct my_
+ 		int errsv = errno;
+ 		error (_("cannot open %s (%s) - mtab not updated"),
+ 		       _PATH_MOUNTED_TMP, strerror (errsv));
+-		discard_mntentchn(mc0);
+ 		goto leave;
+ 	}
+ 
+ 	for (mc = mc0->nxt; mc && mc != mc0; mc = mc->nxt) {
+ 		if (my_addmntent(mftmp, &(mc->m)) == 1) {
+ 			int errsv = errno;
+-			die (EX_FILEIO, _("error writing %s: %s"),
++			error(_("error writing %s: %s"),
+ 			     _PATH_MOUNTED_TMP, strerror (errsv));
++			goto leave;
+ 		}
+ 	}
+ 
+ 	discard_mntentchn(mc0);
++	mc0 = NULL;
++
++	/*
++	 * We have to be paranoid with write() to avoid incomplete
++	 * /etc/mtab. Users are able to control writing by RLIMIT_FSIZE.
++	 */
++	if (fflush(mftmp->mntent_fp) != 0) {
++		int errsv = errno;
++		error (_("%s: cannot fflush changes: %s"),
++			_PATH_MOUNTED_TMP, strerror (errsv));
++		goto leave;
++	}
++
+ 	fd = fileno(mftmp->mntent_fp);
+ 
+ 	/*
+@@ -900,6 +915,9 @@ update_mtab (const char *dir, struct my_
+ 	}
+ 
+  leave:
++	if (mc0)
++		discard_mntentchn(mc0);
++	unlink(_PATH_MOUNTED_TMP);
+ 	unlock_mtab();
+ }
+ 
+diff -up util-linux-ng-2.17.2/mount/mount.c.kzak util-linux-ng-2.17.2/mount/mount.c
+--- util-linux-ng-2.17.2/mount/mount.c.kzak	2011-09-15 11:59:58.613266961 +0200
++++ util-linux-ng-2.17.2/mount/mount.c	2011-09-15 12:02:39.143236916 +0200
+@@ -1244,6 +1244,7 @@ update_mtab_entry(const char *spec, cons
+ 			printf(_("mount: no %s found - creating it..\n"),
+ 			       _PATH_MOUNTED);
+ 		create_mtab ();
++
+ 	}
+ 
+ 	if (!nomtab && mtab_is_writable()) {
+@@ -1251,25 +1252,8 @@ update_mtab_entry(const char *spec, cons
+ 			update_mtab (mnt.mnt_dir, &mnt);
+ 		else if (flags & MS_MOVE)
+ 			update_mtab(mnt.mnt_fsname, &mnt);
+-		else {
+-			mntFILE *mfp;
+-
+-			lock_mtab();
+-			mfp = my_setmntent(_PATH_MOUNTED, "a+");
+-			if (mfp == NULL || mfp->mntent_fp == NULL) {
+-				int errsv = errno;
+-				error(_("mount: can't open %s: %s"), _PATH_MOUNTED,
+-				      strerror (errsv));
+-			} else {
+-				if ((my_addmntent (mfp, &mnt)) == 1) {
+-					int errsv = errno;
+-					error(_("mount: error writing %s: %s"),
+-					      _PATH_MOUNTED, strerror (errsv));
+-				}
+-			}
+-			my_endmntent(mfp);
+-			unlock_mtab();
+-		}
++		else
++			update_mtab(NULL, &mnt);
+ 	}
+ 	my_free(mnt.mnt_fsname);
+ 	my_free(mnt.mnt_dir);

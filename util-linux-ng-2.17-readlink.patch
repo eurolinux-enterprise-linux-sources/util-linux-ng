@@ -1,0 +1,24 @@
+diff -up util-linux-ng-2.17.2/misc-utils/namei.c.kzak util-linux-ng-2.17.2/misc-utils/namei.c
+--- util-linux-ng-2.17.2/misc-utils/namei.c.kzak	2011-03-11 10:56:10.000000000 +0100
++++ util-linux-ng-2.17.2/misc-utils/namei.c	2011-03-11 10:56:30.000000000 +0100
+@@ -181,7 +181,7 @@ static void
+ readlink_to_namei(struct namei *nm, const char *path)
+ {
+ 	char sym[PATH_MAX];
+-	size_t sz;
++	ssize_t sz;
+ 
+ 	sz = readlink(path, sym, sizeof(sym));
+ 	if (sz < 1)
+diff -up util-linux-ng-2.17.2/shlibs/blkid/src/devno.c.kzak util-linux-ng-2.17.2/shlibs/blkid/src/devno.c
+--- util-linux-ng-2.17.2/shlibs/blkid/src/devno.c.kzak	2011-03-11 10:55:11.000000000 +0100
++++ util-linux-ng-2.17.2/shlibs/blkid/src/devno.c	2011-03-11 10:55:11.000000000 +0100
+@@ -363,7 +363,7 @@ int blkid_devno_to_wholedisk(dev_t dev, 
+ 	 *	- dirname  ../../block/sda/sda1 = ../../block/sda
+ 	 *	- basename ../../block/sda      = sda
+ 	 */
+-	linklen = readlink(path, linkpath, sizeof(linkpath));
++	linklen = readlink(path, linkpath, sizeof(linkpath) - 1);
+ 	if (linklen < 0)
+ 		goto err;
+ 	linkpath[linklen] = '\0';

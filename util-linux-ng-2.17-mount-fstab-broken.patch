@@ -1,0 +1,84 @@
+diff -up util-linux-ng-2.17.2/mount/mount.c.kzak util-linux-ng-2.17.2/mount/mount.c
+--- util-linux-ng-2.17.2/mount/mount.c.kzak	2011-08-10 11:59:31.253323614 +0200
++++ util-linux-ng-2.17.2/mount/mount.c	2011-08-10 12:04:01.544595324 +0200
+@@ -1104,7 +1104,8 @@ is_mounted_same_loopfile(const char *nod
+ 			res = loopfile_used_with((char *) mnt->m.mnt_fsname,
+ 					loopfile, offset);
+ 
+-		else if ((p = strstr(mnt->m.mnt_opts, "loop="))) {
++		else if (mnt->m.mnt_opts &&
++			 (p = strstr(mnt->m.mnt_opts, "loop="))) {
+ 			char *dev = xstrdup(p+5);
+ 			if ((p = strchr(dev, ',')))
+ 				*p = '\0';
+diff -up util-linux-ng-2.17.2/mount/mount_mntent.c.kzak util-linux-ng-2.17.2/mount/mount_mntent.c
+--- util-linux-ng-2.17.2/mount/mount_mntent.c.kzak	2011-08-10 11:58:46.447781801 +0200
++++ util-linux-ng-2.17.2/mount/mount_mntent.c	2011-08-10 12:05:07.931399707 +0200
+@@ -72,7 +72,14 @@ static char *
+ unmangle(char *s) {
+ 	char *ret, *ss, *sp;
+ 
++	if (!s)
++		return NULL;
++
+ 	ss = skip_nonspaces(s);
++
++	if (ss == s)
++		return NULL;	/* empty string */
++
+ 	ret = sp = xmalloc(ss-s+1);
+ 	while(s != ss) {
+ 		if (*s == '\\' && isoctal(s[1]) && isoctal(s[2]) && isoctal(s[3])) {
+@@ -128,7 +135,7 @@ my_addmntent (mntFILE *mfp, struct my_mn
+ 	m1 = mangle(mnt->mnt_fsname);
+ 	m2 = mangle(mnt->mnt_dir);
+ 	m3 = mangle(mnt->mnt_type);
+-	m4 = mangle(mnt->mnt_opts);
++	m4 = mnt->mnt_opts ? mangle(mnt->mnt_opts) : "rw";
+ 
+ 	res = fprintf (mfp->mntent_fp, "%s %s %s %s %d %d\n",
+ 		       m1, m2, m3, m4, mnt->mnt_freq, mnt->mnt_passno);
+@@ -136,7 +143,8 @@ my_addmntent (mntFILE *mfp, struct my_mn
+ 	free(m1);
+ 	free(m2);
+ 	free(m3);
+-	free(m4);
++	if (mnt->mnt_opts)
++		free(m4);
+ 	return (res < 0) ? 1 : 0;
+ }
+ 
+@@ -190,6 +198,9 @@ my_getmntent (mntFILE *mfp) {
+ 	s = skip_nonspaces(s);
+ 	s = skip_spaces(s);
+ 
++	if (!me.mnt_fsname || !me.mnt_dir || !me.mnt_type)
++		goto err;
++
+ 	if (isdigit(*s)) {
+ 		me.mnt_freq = atoi(s);
+ 		while(isdigit(*s)) s++;
+diff -up util-linux-ng-2.17.2/mount/sundries.c.kzak util-linux-ng-2.17.2/mount/sundries.c
+--- util-linux-ng-2.17.2/mount/sundries.c.kzak	2011-08-10 12:05:22.493576195 +0200
++++ util-linux-ng-2.17.2/mount/sundries.c	2011-08-10 12:06:15.932223675 +0200
+@@ -218,6 +218,8 @@ matching_opts (const char *options, cons
+ 
+      if (test_opts == NULL)
+ 	  return 1;
++      if (options == NULL)
++	  options = "";
+ 
+      len = strlen(test_opts);
+      q = alloca(len+1);
+diff -up util-linux-ng-2.17.2/mount/umount.c.kzak util-linux-ng-2.17.2/mount/umount.c
+--- util-linux-ng-2.17.2/mount/umount.c.kzak	2011-08-10 11:57:16.064689310 +0200
++++ util-linux-ng-2.17.2/mount/umount.c	2011-08-10 11:56:21.182026238 +0200
+@@ -585,7 +585,7 @@ umount_file (char *arg) {
+ 				     file);
+ 
+ 			/* spec could be a file which is loop mounted */
+-			if (fs && !is_valid_loop(mc, fs))
++			if (!fs || !is_valid_loop(mc, fs))
+ 				die (2, _("umount: %s mount disagrees with "
+ 					  "the fstab"), file);
+ 		}

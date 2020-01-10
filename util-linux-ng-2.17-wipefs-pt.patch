@@ -1,0 +1,12 @@
+diff -up util-linux-ng-2.17.2/misc-utils/wipefs.c.kzak util-linux-ng-2.17.2/misc-utils/wipefs.c
+--- util-linux-ng-2.17.2/misc-utils/wipefs.c.kzak	2011-08-09 16:03:00.157469576 +0200
++++ util-linux-ng-2.17.2/misc-utils/wipefs.c	2011-08-10 11:34:29.440942140 +0200
+@@ -208,7 +208,7 @@ read_offsets(struct wipe_desc *wp, const
+ 	if (rc == 0) {
+ 		const char *type = NULL;
+ 		blkid_probe_lookup_value(pr, "PTTYPE", &type, NULL);
+-		errx(EXIT_FAILURE, _("error: %s: appears to contain '%s' "
++		warnx(_("WARNING: %s: appears to contain '%s' "
+ 				"partition table"), fname, type);
+ 	}
+ 

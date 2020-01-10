@@ -1,0 +1,58 @@
+diff -up util-linux-ng-2.17.2/sys-utils/ipcmk.1.kzak util-linux-ng-2.17.2/sys-utils/ipcmk.1
+--- util-linux-ng-2.17.2/sys-utils/ipcmk.1.kzak	2016-03-15 10:31:50.873742501 +0100
++++ util-linux-ng-2.17.2/sys-utils/ipcmk.1	2016-03-15 10:35:23.923166353 +0100
+@@ -22,8 +22,12 @@ allows you to create shared memory segme
+ Resources may be specified as follows:
+ .TP
+ .BI \-M " size"
+-shared memory segment of size
++shared memory segment of
+ .I size
++bytes
++
++The \fIsize\fR argument may be followed by the multiplicative suffixes KiB (=1024), MiB (=1024*1024), and so on for GiB, etc. (the
++"iB" is optional, e.g., "K" has the same meaning as "KiB") or the suffixes KB (=1000), MB (=1000*1000), and so on for GB, etc.
+ .TP
+ .BI \-S " nsems"
+ semaphore array with
+diff -up util-linux-ng-2.17.2/sys-utils/ipcmk.c.kzak util-linux-ng-2.17.2/sys-utils/ipcmk.c
+--- util-linux-ng-2.17.2/sys-utils/ipcmk.c.kzak	2016-03-15 10:29:29.237790890 +0100
++++ util-linux-ng-2.17.2/sys-utils/ipcmk.c	2016-03-15 10:31:40.339820430 +0100
+@@ -34,6 +34,7 @@
+ #include <sys/msg.h>
+ 
+ #include "nls.h"
++#include "strutils.h"
+ 
+ static const char *progname;
+ 
+@@ -111,14 +112,14 @@ int main(int argc, char **argv)
+ 	while((opt = getopt(argc, argv, "hM:QS:p:")) != -1) {
+ 		switch(opt) {
+ 		case 'M':
+-			size = atoi(optarg);
++			size = strtosize_or_err(optarg, _("failed to parse size"));
+ 			doShm = 1;
+ 			break;
+ 		case 'Q':
+ 			doMsg = 1;
+ 			break;
+ 		case 'S':
+-			nsems = atoi(optarg);
++			nsems = strtos32_or_err(optarg, _("failed to parse elements"));
+ 			doSem = 1;
+ 			break;
+ 		case 'p':
+diff -up util-linux-ng-2.17.2/sys-utils/Makefile.am.kzak util-linux-ng-2.17.2/sys-utils/Makefile.am
+--- util-linux-ng-2.17.2/sys-utils/Makefile.am.kzak	2016-03-15 10:36:46.391556249 +0100
++++ util-linux-ng-2.17.2/sys-utils/Makefile.am	2016-03-15 10:39:29.921346450 +0100
+@@ -8,6 +8,9 @@ usrsbin_exec_PROGRAMS = readprofile
+ dist_man_MANS = flock.1 ipcrm.1 ipcs.1 ipcmk.1 renice.1 setsid.1 \
+ 		readprofile.1
+ 
++ipcmk_SOURCES = ipcmk.c \
++	$(top_srcdir)/lib/strutils.c
++
+ if LINUX
+ bin_PROGRAMS += dmesg
+ sbin_PROGRAMS += ctrlaltdel fsfreeze fstrim

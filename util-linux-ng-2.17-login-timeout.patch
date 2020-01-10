@@ -1,0 +1,12 @@
+diff -up util-linux-ng-2.17.2/login-utils/login.c.kzak util-linux-ng-2.17.2/login-utils/login.c
+--- util-linux-ng-2.17.2/login-utils/login.c.kzak	2012-03-05 09:41:35.952975841 +0100
++++ util-linux-ng-2.17.2/login-utils/login.c	2012-03-05 09:42:43.537244345 +0100
+@@ -165,7 +165,7 @@ static void dolastlog (int quiet);
+  * This bounds the time given to login.  Not a define so it can
+  * be patched on machines where it's too small.
+  */
+-int     timeout = 60;
++int     timeout = 180;
+ 
+ struct passwd *pwd;
+ 

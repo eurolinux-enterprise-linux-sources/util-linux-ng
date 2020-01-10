@@ -1,0 +1,16 @@
+diff -up util-linux-ng-2.17.2/login-utils/login.c.kzak util-linux-ng-2.17.2/login-utils/login.c
+--- util-linux-ng-2.17.2/login-utils/login.c.kzak	2011-02-22 11:32:29.000000000 +0100
++++ util-linux-ng-2.17.2/login-utils/login.c	2011-02-22 11:33:31.000000000 +0100
+@@ -1028,7 +1028,11 @@ Michael Riepe <michael@stud.uni-hannover
+     }
+ #endif
+ 
+-    setgid(pwd->pw_gid);
++    if (setgid(pwd->pw_gid) < 0 && pwd->pw_gid) {
++	syslog(LOG_ALERT, _("setgid() failed"));
++	exit(EXIT_FAILURE);
++    }
++
+ 
+     if (*pwd->pw_shell == '\0')
+       pwd->pw_shell = _PATH_BSHELL;

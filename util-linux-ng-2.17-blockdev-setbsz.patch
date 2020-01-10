@@ -1,0 +1,25 @@
+diff -up util-linux-ng-2.17.2/disk-utils/blockdev.8.kzak util-linux-ng-2.17.2/disk-utils/blockdev.8
+--- util-linux-ng-2.17.2/disk-utils/blockdev.8.kzak	2014-08-11 12:44:55.837177833 +0200
++++ util-linux-ng-2.17.2/disk-utils/blockdev.8	2014-08-11 12:46:13.454020006 +0200
+@@ -54,6 +54,9 @@ Print blocksize in bytes.
+ Set blocksize to
+ .I N
+ bytes.
++Note that the block size is specific to the current file descriptor opening the
++block device, so the change of block size only persists for as long as blockdev
++has the device open, and is lost once blockdev exits.
+ .TP
+ .B \--getsize
+ Print device size in sectors (BLKGETSIZE). Deprecated in favor of the
+diff -up util-linux-ng-2.17.2/disk-utils/blockdev.c.kzak util-linux-ng-2.17.2/disk-utils/blockdev.c
+--- util-linux-ng-2.17.2/disk-utils/blockdev.c.kzak	2010-03-18 23:11:23.000000000 +0100
++++ util-linux-ng-2.17.2/disk-utils/blockdev.c	2014-08-11 12:44:55.838177844 +0200
+@@ -122,7 +122,7 @@ struct bdc bdcms[] =
+ 		.argname = "BLOCKSIZE",
+ 		.argtype = ARG_INT,
+ 		.flags = FL_NORESULT,
+-	        .help = N_("set blocksize")
++	        .help = N_("set blocksize on file descriptor opening the block device")
+ 	},{
+ 		IOCTL_ENTRY(BLKGETSIZE),
+ 		.name = "--getsize",

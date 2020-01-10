@@ -1,0 +1,117 @@
+diff -up util-linux-ng-2.17.2/include/canonicalize.h.kzak util-linux-ng-2.17.2/include/canonicalize.h
+--- util-linux-ng-2.17.2/include/canonicalize.h.kzak	2010-03-18 23:11:23.000000000 +0100
++++ util-linux-ng-2.17.2/include/canonicalize.h	2013-01-09 10:29:12.680054852 +0100
+@@ -5,5 +5,6 @@
+ 
+ extern char *canonicalize_path(const char *path);
+ extern char *canonicalize_dm_name(const char *ptname);
++extern char *canonicalize_path_restricted(const char *path);
+ 
+ #endif /* CANONICALIZE_H */
+diff -up util-linux-ng-2.17.2/lib/canonicalize.c.kzak util-linux-ng-2.17.2/lib/canonicalize.c
+--- util-linux-ng-2.17.2/lib/canonicalize.c.kzak	2010-03-18 23:11:23.000000000 +0100
++++ util-linux-ng-2.17.2/lib/canonicalize.c	2013-01-09 10:29:12.680054852 +0100
+@@ -188,4 +188,45 @@ canonicalize_path(const char *path)
+ 	return strdup(canonical);
+ }
+ 
++char *
++canonicalize_path_restricted(const char *path)
++{
++	char canonical[PATH_MAX+2];
++	char *p = NULL;
++	int errsv;
++	uid_t euid;
++	gid_t egid;
++
++	if (path == NULL)
++		return NULL;
++
++	euid = geteuid();
++	egid = getegid();
++
++	/* drop permissions */
++	if (setegid(getgid()) < 0 || seteuid(getuid()) < 0)
++		return NULL;
++
++	errsv = errno = 0;
++
++	if (myrealpath(path, canonical, PATH_MAX+1)) {
++		p = strrchr(canonical, '/');
++		if (p && strncmp(p, "/dm-", 4) == 0 && isdigit(*(p + 4)))
++			p = canonicalize_dm_name(p+1);
++		else
++			p = NULL;
++		if (!p)
++			p = strdup(canonical);
++	} else
++		errsv = errno;
++
++	/* restore */
++	if (setegid(egid) < 0 || seteuid(euid) < 0) {
++		free(p);
++		return NULL;
++	}
++
++	errno = errsv;
++	return p;
++}
+ 
+diff -up util-linux-ng-2.17.2/mount/mount.c.kzak util-linux-ng-2.17.2/mount/mount.c
+--- util-linux-ng-2.17.2/mount/mount.c.kzak	2013-01-09 10:29:12.677054824 +0100
++++ util-linux-ng-2.17.2/mount/mount.c	2013-01-09 10:29:56.198410048 +0100
+@@ -41,6 +41,7 @@
+ #include "env.h"
+ #include "nls.h"
+ #include "blkdev.h"
++#include "canonicalize.h"
+ 
+ #define DO_PS_FIDDLING
+ 
+@@ -2020,7 +2021,6 @@ static struct option longopts[] = {
+ 	{ "types", 1, 0, 't' },
+ 	{ "bind", 0, 0, 'B' },
+ 	{ "move", 0, 0, 'M' },
+-	{ "guess-fstype", 1, 0, 134 },
+ 	{ "rbind", 0, 0, 'R' },
+ 	{ "make-shared", 0, 0, 136 },
+ 	{ "make-slave", 0, 0, 137 },
+@@ -2280,18 +2280,6 @@ main(int argc, char *argv[]) {
+ 		case 0:
+ 			break;
+ 
+-		case 134:
+-			/* undocumented, may go away again:
+-			   call: mount --guess-fstype device
+-			   use only for testing purposes -
+-			   the guessing is not reliable at all */
+-		    {
+-			const char *fstype;
+-			fstype = fsprobe_get_fstype_by_devname(optarg);
+-			printf("%s\n", fstype ? fstype : "unknown");
+-			exit(fstype ? 0 : EX_FAIL);
+-		    }
+-
+ 		case 136:
+ 			mounttype = MS_SHARED;
+ 			break;
+@@ -2395,8 +2383,17 @@ main(int argc, char *argv[]) {
+ 
+ 		if (uuid || label)
+ 			mc = getfs(NULL, uuid, label);
+-		else
+-			mc = getfs(*argv, NULL, NULL);
++		else {
++			char *path = *argv;
++
++			if (restricted) {
++				path = canonicalize_path_restricted(path);
++				if (!path)
++					die(EX_USAGE, "%s: %s", *argv, strerror(errno));
++			}
++
++			mc = getfs(path, NULL, NULL);
++		}
+ 
+ 		if (!mc) {
+ 			if (uuid || label)

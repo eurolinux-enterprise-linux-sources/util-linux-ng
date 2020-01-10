@@ -1,0 +1,493 @@
+
+ Based on libuuid changes in util-linux v2.19 and v2.20.
+
+ 559e48112e28b818b5d90341ef58405027035298 uuidd: fix manpage: libuuid(3) does not exist
+ 899e7d5a4989a1470f5b3a9422a270eeaf38178a uuidd: mention -q in uuidd.8 
+
+ e47bce7822ca910cf360d41acf67d4d9b31dd2be libuuid: move __uuid function to UUIDD_PRIVATE in uuid.sym
+ e3d4e31c942218b71771062a03180a30553ff1f9 libuuid: update manpage, mention uuid_generate_time_safe
+ 5ce8da3c33ce4e5c406447c9a797311082e8f955 libuuid: introduce uuid_generate_time_safe()
+ 46bae9f3403a6b31e729834b39eae3a8e430fbd9 libuuid: __uuid_generate_time(): report if clock_seq is safe
+ 70b989c2800729f1442d0b9ea72ff92cdd211fe6 libuuid: rename uuid__generate_* to __uuid_generate_*
+ 34b2e3f13397c5ed8e5686f99e6dd677f944d1f2 libuuid: get_clock(): report if the clock_seq is safe
+ 20c04820d16673901ade8b344aa745d1d3a8876d libuuid: do not use invalid file descriptor
+ 7491ee6a5a5e9c72c5154022a7151a18a86599cb libuuid: fix test in get_clock()
+ c190c6c2e987816ca0f273e2de528701d10cbbc1 libuuid: fix locking of clock state counter file
+
+diff -up util-linux-ng-2.17.2/misc-utils/uuidd.8.kzak util-linux-ng-2.17.2/misc-utils/uuidd.8
+--- util-linux-ng-2.17.2/misc-utils/uuidd.8.kzak	2010-02-04 12:53:56.000000000 +0100
++++ util-linux-ng-2.17.2/misc-utils/uuidd.8	2011-02-22 11:15:43.000000000 +0100
+@@ -27,9 +27,9 @@ uuidd \- UUID generation daemon
+ The
+ .B uuidd
+ daemon is used by the UUID library to generate
+-universally unique identifiers (UUIDs), especially time-based UUID's
++universally unique identifiers (UUIDs), especially time-based UUIDs,
+ in a secure and guaranteed-unique fashion, even in the face of large
+-numbers of threads trying to grab UUID's running on different CPU's.
++numbers of threads running on different CPUs trying to grab UUIDs.
+ .SH OPTIONS
+ .TP
+ .B \-d
+@@ -38,13 +38,13 @@ Run
+ in debugging mode.  This prevents uuidd from running as a daemon.
+ .TP
+ .B \-k
+-If a currently uuidd daemon is running, kill it.
++If currently a uuidd daemon is running, kill it.
+ .TP
+ .BI \-n " number"
+ When issuing a test request to a running uuidd, request a bulk response
+ of
+ .I number
+-UUID's.
++UUIDs.
+ .TP
+ .BI \-p  " pidfile"
+ Specify the pathname where the pid file should be written.  By default,
+@@ -68,6 +68,9 @@ request it to return a time-based UUID.
+ Specify a timeout for uuidd.  If specified, then uuidd will exit after
+ .I timeout
+ seconds of inactivity.
++.TP
++.BI \-q
++Turn on quiet flag.
+ .SH AUTHOR
+ The
+ .B uuidd
+@@ -76,5 +79,5 @@ daemon  was written by Theodore Ts'o <ty
+ uuidd is part of the util-linux-ng package and is available from
+ ftp://ftp.kernel.org/pub/linux/utils/util-linux-ng/.
+ .SH "SEE ALSO"
+-.BR libuuid (3),
++.BR uuid (3),
+ .BR uuidgen (1)
+diff -up util-linux-ng-2.17.2/misc-utils/uuidd.c.kzak util-linux-ng-2.17.2/misc-utils/uuidd.c
+--- util-linux-ng-2.17.2/misc-utils/uuidd.c.kzak	2010-02-04 12:53:56.000000000 +0100
++++ util-linux-ng-2.17.2/misc-utils/uuidd.c	2011-02-22 11:06:13.000000000 +0100
+@@ -213,7 +213,7 @@ static int call_daemon(const char *socke
+ 			*num = -1;
+ 	}
+ 	if ((ret > 0) && (op == 5)) {
+-		if (*num >= (int) sizeof(int))
++		if (reply_len >= (int) sizeof(int))
+ 			memcpy(buf, num, sizeof(int));
+ 		else
+ 			*num = -1;
+@@ -308,7 +308,7 @@ static void server_loop(const char *sock
+ 	}
+ 	(void) umask(save_umask);
+ 
+-	if (listen(s, 5) < 0) {
++	if (listen(s, SOMAXCONN) < 0) {
+ 		if (!quiet)
+ 			fprintf(stderr, _("Couldn't listen on unix "
+ 					  "socket %s: %s\n"), socket_path,
+@@ -372,7 +372,7 @@ static void server_loop(const char *sock
+ 			break;
+ 		case UUIDD_OP_TIME_UUID:
+ 			num = 1;
+-			uuid__generate_time(uu, &num);
++			__uuid_generate_time(uu, &num);
+ 			if (debug) {
+ 				uuid_unparse(uu, str);
+ 				printf(_("Generated time UUID: %s\n"), str);
+@@ -382,7 +382,7 @@ static void server_loop(const char *sock
+ 			break;
+ 		case UUIDD_OP_RANDOM_UUID:
+ 			num = 1;
+-			uuid__generate_random(uu, &num);
++			__uuid_generate_random(uu, &num);
+ 			if (debug) {
+ 				uuid_unparse(uu, str);
+ 				printf(_("Generated random UUID: %s\n"), str);
+@@ -391,11 +391,11 @@ static void server_loop(const char *sock
+ 			reply_len = sizeof(uu);
+ 			break;
+ 		case UUIDD_OP_BULK_TIME_UUID:
+-			uuid__generate_time(uu, &num);
++			__uuid_generate_time(uu, &num);
+ 			if (debug) {
+ 				uuid_unparse(uu, str);
+ 				printf(_("Generated time UUID %s and %d "
+-					 "following\n"), str, num);
++					 "following\n"), str, num - 1);
+ 			}
+ 			memcpy(reply_buf, uu, sizeof(uu));
+ 			reply_len = sizeof(uu);
+@@ -409,7 +409,7 @@ static void server_loop(const char *sock
+ 				num = 1000;
+ 			if (num*16 > (int) (sizeof(reply_buf)-sizeof(num)))
+ 				num = (sizeof(reply_buf)-sizeof(num)) / 16;
+-			uuid__generate_random((unsigned char *) reply_buf +
++			__uuid_generate_random((unsigned char *) reply_buf +
+ 					      sizeof(num), &num);
+ 			if (debug) {
+ 				printf(_("Generated %d UUID's:\n"), num);
+@@ -464,7 +464,7 @@ int main(int argc, char **argv)
+ 			break;
+ 		case 'n':
+ 			num = strtol(optarg, &tmp, 0);
+-			if ((num < 0) || *tmp) {
++			if ((num < 1) || *tmp) {
+ 				fprintf(stderr, _("Bad number: %s\n"), optarg);
+ 				exit(1);
+ 			}
+@@ -531,7 +531,7 @@ int main(int argc, char **argv)
+ 
+ 			uuid_unparse((unsigned char *) buf, str);
+ 
+-			printf(_("%s and subsequent %d UUID's\n"), str, num);
++			printf(_("%s and subsequent %d UUID's\n"), str, num - 1);
+ 		} else {
+ 			printf(_("List of UUID's:\n"));
+ 			cp = buf + 4;
+diff -up util-linux-ng-2.17.2/shlibs/uuid/man/uuid_generate.3.kzak util-linux-ng-2.17.2/shlibs/uuid/man/uuid_generate.3
+--- util-linux-ng-2.17.2/shlibs/uuid/man/uuid_generate.3.kzak	2010-02-04 12:53:58.000000000 +0100
++++ util-linux-ng-2.17.2/shlibs/uuid/man/uuid_generate.3	2011-02-22 10:59:15.000000000 +0100
+@@ -31,7 +31,8 @@
+ .\" Created  Wed Mar 10 17:42:12 1999, Andreas Dilger
+ .TH UUID_GENERATE 3 "May 2009" "util-linux-ng" "Libuuid API"
+ .SH NAME
+-uuid_generate, uuid_generate_random, uuid_generate_time \- create a new unique UUID value
++uuid_generate, uuid_generate_random, uuid_generate_time,
++uuid_generate_time_safe \- create a new unique UUID value
+ .SH SYNOPSIS
+ .nf
+ .B #include <uuid/uuid.h>
+@@ -39,6 +40,7 @@ uuid_generate, uuid_generate_random, uui
+ .BI "void uuid_generate(uuid_t " out );
+ .BI "void uuid_generate_random(uuid_t " out );
+ .BI "void uuid_generate_time(uuid_t " out );
++.BI "int uuid_generate_time_safe(uuid_t " out );
+ .fi
+ .SH DESCRIPTION
+ The
+@@ -58,8 +60,8 @@ function forces the use of the all-rando
+ a high-quality random number generator (i.e.,
+ .IR /dev/urandom )
+ is not available, in which case a pseudo-random
+-generator will be subsituted.  Note that the use of a pseudo-random
+-generator may compromise the uniqueness of UUID's
++generator will be substituted.  Note that the use of a pseudo-random
++generator may compromise the uniqueness of UUIDs
+ generated in this fashion.
+ .sp
+ The
+@@ -72,10 +74,27 @@ information about when and where the UUI
+ privacy problems in some applications, so the
+ .B uuid_generate
+ function only uses this algorithm if a high-quality source of
+-randomness is not available.
++randomness is not available.  To guarantee uniqueness of UUIDs generated
++by concurrently running processes, the uuid library uses global
++clock state counter (if the process has permissions to gain exclusive access
++to this file) and/or the
++.B uuidd
++daemon, if it is running already or can be be spawned by the process (if
++installed and the process has enough permissions to run it).  If neither of
++these two synchronization mechanisms can be used, it is theoretically possible
++that two concurrently running processes obtain the same UUID(s).  To tell
++whether the UUID has been generated in a safe manner, use
++.BR uuid_generate_time_safe .
++.sp
++The
++.B uuid_generate_time_safe
++is similar to
++.BR uuid_generate_time ,
++except that it returns a value which denotes whether any of the synchronization
++mechanisms (see above) has been used.
+ .sp
+ The UUID is 16 bytes (128 bits) long, which gives approximately 3.4x10^38
+-unique values (there are approximately 10^80 elemntary particles in
++unique values (there are approximately 10^80 elementary particles in
+ the universe according to Carl Sagan's
+ .IR Cosmos ).
+ The new UUID can reasonably be considered unique among all UUIDs created
+@@ -84,6 +103,8 @@ and in the future.
+ .SH RETURN VALUE
+ The newly created UUID is returned in the memory location pointed to by
+ .IR out .
++.B uuid_generate_time_safe
++returns zero if the UUID has been generated in a safe manner, -1 otherwise.
+ .SH "CONFORMING TO"
+ OSF DCE 1.1
+ .SH AUTHOR
+@@ -95,6 +116,7 @@ ftp://ftp.kernel.org/pub/linux/utils/uti
+ .SH "SEE ALSO"
+ .BR uuid (3),
+ .BR uuidgen (1),
++.BR uuidd (8),
+ .BR uuid_clear (3),
+ .BR uuid_compare (3),
+ .BR uuid_copy (3),
+diff -up util-linux-ng-2.17.2/shlibs/uuid/man/uuid_time.3.kzak util-linux-ng-2.17.2/shlibs/uuid/man/uuid_time.3
+--- util-linux-ng-2.17.2/shlibs/uuid/man/uuid_time.3.kzak	2010-02-04 12:53:58.000000000 +0100
++++ util-linux-ng-2.17.2/shlibs/uuid/man/uuid_time.3	2011-02-22 10:59:15.000000000 +0100
+@@ -47,7 +47,9 @@ was created.  Note that the UUID creatio
+ certain types of UUIDs.  This function can only reasonably expect to
+ extract the creation time for UUIDs created with the
+ .BR uuid_generate_time (3)
+-function.  It may or may not work with UUIDs created by other mechanisms.
++and
++.BR uuid_generate_time_safe (3)
++functions.  It may or may not work with UUIDs created by other mechanisms.
+ .SH "RETURN VALUES"
+ The time at which the UUID was created, in seconds since January 1, 1970 GMT
+ (the epoch), is returned (see
+diff -up util-linux-ng-2.17.2/shlibs/uuid/src/gen_uuid.c.kzak util-linux-ng-2.17.2/shlibs/uuid/src/gen_uuid.c
+--- util-linux-ng-2.17.2/shlibs/uuid/src/gen_uuid.c.kzak	2010-03-18 23:11:23.000000000 +0100
++++ util-linux-ng-2.17.2/shlibs/uuid/src/gen_uuid.c	2011-02-22 10:59:15.000000000 +0100
+@@ -306,6 +306,12 @@ static int get_node_id(unsigned char *no
+ /* Assume that the gettimeofday() has microsecond granularity */
+ #define MAX_ADJUSTMENT 10
+ 
++/*
++ * Get clock from global sequence clock counter.
++ *
++ * Return -1 if the clock counter could not be opened/locked (in this case
++ * pseudorandom value is returned in @ret_clock_seq), otherwise return 0.
++ */
+ static int get_clock(uint32_t *clock_high, uint32_t *clock_low,
+ 		     uint16_t *ret_clock_seq, int *num)
+ {
+@@ -315,35 +321,36 @@ static int get_clock(uint32_t *clock_hig
+ 	THREAD_LOCAL FILE		*state_f;
+ 	THREAD_LOCAL uint16_t		clock_seq;
+ 	struct timeval			tv;
+-	struct flock			fl;
+ 	uint64_t			clock_reg;
+ 	mode_t				save_umask;
+ 	int				len;
++	int				ret = 0;
+ 
+ 	if (state_fd == -2) {
+ 		save_umask = umask(0);
+ 		state_fd = open("/var/lib/libuuid/clock.txt",
+ 				O_RDWR|O_CREAT, 0660);
+ 		(void) umask(save_umask);
+-		state_f = fdopen(state_fd, "r+");
+-		if (!state_f) {
+-			close(state_fd);
+-			state_fd = -1;
++		if (state_fd != -1) {
++			state_f = fdopen(state_fd, "r+");
++			if (!state_f) {
++				close(state_fd);
++				state_fd = -1;
++				ret = -1;
++			}
+ 		}
++		else
++			ret = -1;
+ 	}
+-	fl.l_type = F_WRLCK;
+-	fl.l_whence = SEEK_SET;
+-	fl.l_start = 0;
+-	fl.l_len = 0;
+-	fl.l_pid = 0;
+ 	if (state_fd >= 0) {
+ 		rewind(state_f);
+-		while (fcntl(state_fd, F_SETLKW, &fl) < 0) {
++		while (flock(state_fd, LOCK_EX) < 0) {
+ 			if ((errno == EAGAIN) || (errno == EINTR))
+ 				continue;
+ 			fclose(state_f);
+ 			close(state_fd);
+ 			state_fd = -1;
++			ret = -1;
+ 			break;
+ 		}
+ 	}
+@@ -398,7 +405,7 @@ try_again:
+ 		last.tv_usec = last.tv_usec % 1000000;
+ 	}
+ 
+-	if (state_fd > 0) {
++	if (state_fd >= 0) {
+ 		rewind(state_f);
+ 		len = fprintf(state_f,
+ 			      "clock: %04x tv: %016lu %08lu adj: %08d\n",
+@@ -409,14 +416,13 @@ try_again:
+ 			fflush(state_f);
+ 		}
+ 		rewind(state_f);
+-		fl.l_type = F_UNLCK;
+-		fcntl(state_fd, F_SETLK, &fl);
++		flock(state_fd, LOCK_UN);
+ 	}
+ 
+ 	*clock_high = clock_reg >> 32;
+ 	*clock_low = clock_reg;
+ 	*ret_clock_seq = clock_seq;
+-	return 0;
++	return ret;
+ }
+ 
+ #if defined(HAVE_UUIDD) && defined(HAVE_SYS_UN_H)
+@@ -560,12 +566,13 @@ static int get_uuid_via_daemon(int op, u
+ }
+ #endif
+ 
+-void uuid__generate_time(uuid_t out, int *num)
++int __uuid_generate_time(uuid_t out, int *num)
+ {
+ 	static unsigned char node_id[6];
+ 	static int has_init = 0;
+ 	struct uuid uu;
+ 	uint32_t	clock_mid;
++	int ret;
+ 
+ 	if (!has_init) {
+ 		if (get_node_id(node_id) <= 0) {
+@@ -579,16 +586,24 @@ void uuid__generate_time(uuid_t out, int
+ 		}
+ 		has_init = 1;
+ 	}
+-	get_clock(&clock_mid, &uu.time_low, &uu.clock_seq, num);
++	ret = get_clock(&clock_mid, &uu.time_low, &uu.clock_seq, num);
+ 	uu.clock_seq |= 0x8000;
+ 	uu.time_mid = (uint16_t) clock_mid;
+ 	uu.time_hi_and_version = ((clock_mid >> 16) & 0x0FFF) | 0x1000;
+ 	memcpy(uu.node, node_id, 6);
+ 	uuid_pack(&uu, out);
++	return ret;
+ }
+ 
+-void uuid_generate_time(uuid_t out)
+-{
++/*
++ * Generate time-based UUID and store it to @out
++ *
++ * Tries to guarantee uniqueness of the generated UUIDs by obtaining them from the uuidd daemon,
++ * or, if uuidd is not usable, by using the global clock state counter (see get_clock()).
++ * If neither of these is possible (e.g. because of insufficient permissions), it generates
++ * the UUID anyway, but returns -1. Otherwise, returns 0.
++ */
++static int uuid_generate_time_generic(uuid_t out) {
+ #ifdef HAVE_TLS
+ 	THREAD_LOCAL int		num = 0;
+ 	THREAD_LOCAL struct uuid	uu;
+@@ -607,7 +622,7 @@ void uuid_generate_time(uuid_t out)
+ 			last_time = time(0);
+ 			uuid_unpack(out, &uu);
+ 			num--;
+-			return;
++			return 0;
+ 		}
+ 		num = 0;
+ 	}
+@@ -620,18 +635,34 @@ void uuid_generate_time(uuid_t out)
+ 		}
+ 		num--;
+ 		uuid_pack(&uu, out);
+-		return;
++		return 0;
+ 	}
+ #else
+ 	if (get_uuid_via_daemon(UUIDD_OP_TIME_UUID, out, 0) == 0)
+-		return;
++		return 0;
+ #endif
+ 
+-	uuid__generate_time(out, 0);
++	return __uuid_generate_time(out, 0);
++}
++
++/*
++ * Generate time-based UUID and store it to @out.
++ *
++ * Discards return value from uuid_generate_time_generic()
++ */
++void uuid_generate_time(uuid_t out)
++{
++	(void)uuid_generate_time_generic(out);
++}
++
++
++int uuid_generate_time_safe(uuid_t out)
++{
++	return uuid_generate_time_generic(out);
+ }
+ 
+ 
+-void uuid__generate_random(uuid_t out, int *num)
++void __uuid_generate_random(uuid_t out, int *num)
+ {
+ 	uuid_t	buf;
+ 	struct uuid uu;
+@@ -659,7 +690,7 @@ void uuid_generate_random(uuid_t out)
+ 	int	num = 1;
+ 	/* No real reason to use the daemon for random uuid's -- yet */
+ 
+-	uuid__generate_random(out, &num);
++	__uuid_generate_random(out, &num);
+ }
+ 
+ 
+diff -up util-linux-ng-2.17.2/shlibs/uuid/src/uuidd.h.kzak util-linux-ng-2.17.2/shlibs/uuid/src/uuidd.h
+--- util-linux-ng-2.17.2/shlibs/uuid/src/uuidd.h.kzak	2010-02-04 12:53:58.000000000 +0100
++++ util-linux-ng-2.17.2/shlibs/uuid/src/uuidd.h	2011-02-22 10:59:15.000000000 +0100
+@@ -48,7 +48,7 @@
+ #define UUIDD_OP_BULK_RANDOM_UUID	5
+ #define UUIDD_MAX_OP			UUIDD_OP_BULK_RANDOM_UUID
+ 
+-extern void uuid__generate_time(uuid_t out, int *num);
+-extern void uuid__generate_random(uuid_t out, int *num);
++extern int __uuid_generate_time(uuid_t out, int *num);
++extern void __uuid_generate_random(uuid_t out, int *num);
+ 
+ #endif /* _UUID_UUID_H */
+diff -up util-linux-ng-2.17.2/shlibs/uuid/src/uuid.h.kzak util-linux-ng-2.17.2/shlibs/uuid/src/uuid.h
+--- util-linux-ng-2.17.2/shlibs/uuid/src/uuid.h.kzak	2010-02-04 12:53:58.000000000 +0100
++++ util-linux-ng-2.17.2/shlibs/uuid/src/uuid.h	2011-02-22 10:59:15.000000000 +0100
+@@ -79,6 +79,7 @@ void uuid_copy(uuid_t dst, const uuid_t 
+ void uuid_generate(uuid_t out);
+ void uuid_generate_random(uuid_t out);
+ void uuid_generate_time(uuid_t out);
++int uuid_generate_time_safe(uuid_t out);
+ 
+ /* isnull.c */
+ int uuid_is_null(const uuid_t uu);
+diff -up util-linux-ng-2.17.2/shlibs/uuid/src/uuid.sym.kzak util-linux-ng-2.17.2/shlibs/uuid/src/uuid.sym
+--- util-linux-ng-2.17.2/shlibs/uuid/src/uuid.sym.kzak	2010-02-04 12:53:58.000000000 +0100
++++ util-linux-ng-2.17.2/shlibs/uuid/src/uuid.sym	2011-02-22 10:59:15.000000000 +0100
+@@ -1,6 +1,6 @@
+ /*
+  * The symbol versioning ensures that a new application requiring symbol foo()
+- * can't run with old libblkid.so not providing foo() - the global SONAME
++ * can't run with old libuuid.so not providing foo() - the global SONAME
+  * version info can't enforce this since we never change the SONAME.
+  *
+  * The original libuuid from e2fsprogs (<=1.41.5) does not to use
+@@ -22,12 +22,25 @@ global:
+ 	uuid_time;
+ 	uuid_type;
+ 	uuid_variant;
++};
++
++/*
++ * version(s) since util-linux 2.20
++ */
++UUID_2.20 {
++global:
++	uuid_generate_time_safe;
++} UUID_1.0;
+ 
+-	/* uuid__* this is not part of the official API, this is
+-	 * uuidd (uuid daemon) specific stuff. Hell.
+-	 */
+-	uuid__generate_time;
+-	uuid__generate_random;
++
++/*
++ * __uuid_* this is not part of the official API, this is
++ * uuidd (uuid daemon) specific stuff. Hell.
++ */
++UUIDD_PRIVATE {
++global:
++	__uuid_generate_time;
++	__uuid_generate_random;
+ local:
+ 	*;
+ };

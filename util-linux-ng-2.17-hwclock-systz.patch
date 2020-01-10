@@ -1,0 +1,85 @@
+diff -up util-linux-ng-2.17.2/hwclock/hwclock.8.kzak util-linux-ng-2.17.2/hwclock/hwclock.8
+--- util-linux-ng-2.17.2/hwclock/hwclock.8.kzak	2012-10-03 12:47:48.117707007 +0200
++++ util-linux-ng-2.17.2/hwclock/hwclock.8	2012-10-03 12:48:48.932072782 +0200
+@@ -57,10 +57,12 @@ This is a good option to use in one of t
+ Set the Hardware Clock to the current System Time.
+ .TP
+ .B \-\-systz
+-Reset the System Time based on the current timezone.
++Set the kernel's timezone and reset the System Time based on the current timezone.
+ 
+-Also set the kernel's timezone value to the local timezone
+-as indicated by the TZ environment variable and/or
++The system time is only reset on the first call after boot.
++ 
++The local timezone is taken to be what is
++indicated by the TZ environment variable and/or
+ .IR /usr/share/zoneinfo ,
+ as
+ .BR tzset (3)
+@@ -73,7 +75,8 @@ This is an alternate option to
+ .B \-\-hctosys
+ that does not read the hardware clock, and may be used in system startup
+ scripts for recent 2.6 kernels where you know the System Time contains
+-the Hardware Clock time.
++the Hardware Clock time. If the Hardware Clock is already in UTC, it is
++not reset.
+ .TP
+ .B \-\-adjust
+ Add or subtract time from the Hardware Clock to account for systematic
+diff -up util-linux-ng-2.17.2/hwclock/hwclock.c.kzak util-linux-ng-2.17.2/hwclock/hwclock.c
+--- util-linux-ng-2.17.2/hwclock/hwclock.c.kzak	2012-10-03 12:47:27.677584066 +0200
++++ util-linux-ng-2.17.2/hwclock/hwclock.c	2012-10-03 12:47:27.679584078 +0200
+@@ -769,7 +769,6 @@ set_system_clock_timezone(const bool uni
+   struct timeval tv;
+   struct tm *broken;
+   int minuteswest;
+-  int rc;
+ 
+   gettimeofday(&tv, NULL);
+   if (debug) {
+@@ -790,14 +789,14 @@ set_system_clock_timezone(const bool uni
+ 	  minuteswest -= 60;
+ #endif
+ 
+-  gettimeofday(&tv, NULL);
+-  if (!universal)
+-    tv.tv_sec += minuteswest * 60;
+-
+   if (debug) {
+     struct tm broken_time;
+     char ctime_now[200];
+ 
++    gettimeofday(&tv, NULL);
++    if (!universal)
++	    tv.tv_sec += minuteswest * 60;
++
+     broken_time = *gmtime(&tv.tv_sec);
+     strftime(ctime_now, sizeof(ctime_now), "%Y/%m/%d %H:%M:%S", &broken_time);
+ 
+@@ -811,9 +810,24 @@ set_system_clock_timezone(const bool uni
+     printf(_("Not setting system clock because running in test mode.\n"));
+     retcode = 0;
+   } else {
++    const struct timezone tz_utc = { 0, 0 };
+     const struct timezone tz = { minuteswest, 0 };
++    const struct timeval *tv_null = NULL;
++    int rc = 0;
++
++    /* The first call to settimeofday after boot will assume the systemtime
++     * is in localtime, and adjust it according to the given timezone to
++     * compensate. If the systemtime is in fact in UTC, then this is wrong
++     * so we first do a dummy call to make sure the time is not shifted.
++     */
++    if (universal)
++	    rc = settimeofday(tv_null, &tz_utc);
++
++    /* Now we set the real timezone. Due to the above dummy call, this will
++     * only warp the systemtime if the RTC is not in UTC. */
++    if (!rc)
++	    rc = settimeofday(tv_null, &tz);
+ 
+-    rc = settimeofday(&tv, &tz);
+     if (rc) {
+ 	    if (errno == EPERM) {
+ 		    fprintf(stderr,

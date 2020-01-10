@@ -1,0 +1,32 @@
+diff -up util-linux-ng-2.17.2/fdisk/cfdisk.8.kzak util-linux-ng-2.17.2/fdisk/cfdisk.8
+--- util-linux-ng-2.17.2/fdisk/cfdisk.8.kzak	2010-02-04 12:53:55.000000000 +0100
++++ util-linux-ng-2.17.2/fdisk/cfdisk.8	2012-10-02 16:03:03.527254386 +0200
+@@ -44,6 +44,12 @@ argument are:
+ .RE
+ .fi
+ 
++Note that
++.B cfdisk
++does not align partitions to block device I/O limits. This functionality is
++provided by
++.BR fdisk (8).
++
+ In order to write the partition table
+ .B cfdisk
+ needs something called the `geometry' of the disk: the number
+diff -up util-linux-ng-2.17.2/fdisk/sfdisk.8.kzak util-linux-ng-2.17.2/fdisk/sfdisk.8
+--- util-linux-ng-2.17.2/fdisk/sfdisk.8.kzak	2010-02-04 12:53:55.000000000 +0100
++++ util-linux-ng-2.17.2/fdisk/sfdisk.8	2012-10-02 16:02:33.860080991 +0200
+@@ -26,6 +26,12 @@ doesn't understand GUID Partition Table
+ it is not designed for large partitions. In particular case use more advanced GNU
+ .BR parted (8).
+ 
++Note that
++.B sfdisk
++does not align partitions to block device I/O limits. This functionality is
++provided by
++.BR fdisk (8).
++
+ .SS "List Sizes"
+ .BI "sfdisk \-s " partition
+ gives the size of

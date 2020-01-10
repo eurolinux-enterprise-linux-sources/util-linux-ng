@@ -1,0 +1,17 @@
+diff -up util-linux-ng-2.17.2/schedutils/taskset.1.kzak util-linux-ng-2.17.2/schedutils/taskset.1
+--- util-linux-ng-2.17.2/schedutils/taskset.1.kzak	2010-02-04 12:53:57.000000000 +0100
++++ util-linux-ng-2.17.2/schedutils/taskset.1	2014-06-12 10:36:20.124939510 +0200
+@@ -100,10 +100,11 @@ Or set it:
+ .B taskset \-p
+ .I mask pid
+ .SH PERMISSIONS
++A user can change the CPU affinity of a process belonging to the same user.
+ A user must possess
+ .B CAP_SYS_NICE
+-to change the CPU affinity of a process.  Any user can retrieve the affinity
+-mask.
++to change the CPU affinity of a process belonging to another user.
++A user can retrieve the affinity mask of any process.
+ .SH AUTHOR
+ Written by Robert M. Love.
+ .SH COPYRIGHT

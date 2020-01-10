@@ -1,0 +1,26 @@
+diff -up util-linux-ng-2.17.2/text-utils/tailf.c.kzak util-linux-ng-2.17.2/text-utils/tailf.c
+--- util-linux-ng-2.17.2/text-utils/tailf.c.kzak	2010-03-18 23:11:23.000000000 +0100
++++ util-linux-ng-2.17.2/text-utils/tailf.c	2012-10-02 16:26:51.785931063 +0200
+@@ -57,7 +57,7 @@ tailf(const char *filename, int lines)
+ 	if (!(str = fopen(filename, "r")))
+ 		err(EXIT_FAILURE, _("cannot open \"%s\" for read"), filename);
+ 
+-	buf = malloc(lines * BUFSIZ);
++	buf = malloc((lines ? lines : 1) * BUFSIZ);
+ 	p = buf;
+ 	while (fgets(p, BUFSIZ, str)) {
+ 		if (++tail >= lines) {
+@@ -195,11 +195,11 @@ int main(int argc, char **argv)
+ 	for (; argc > 0 && argv[0][0] == '-'; argc--, argv++) {
+ 		if (!strcmp(*argv, "-n") || !strcmp(*argv, "--lines")) {
+ 			argc--;	argv++;
+-			if (argc > 0 && (lines = atoi(argv[0])) <= 0)
++			if (argc > 0 && (lines = atoi(argv[0])) < 0)
+ 				errx(EXIT_FAILURE, _("invalid number of lines"));
+ 		}
+ 		else if (isdigit(argv[0][1])) {
+-			if ((lines = atoi(*argv + 1)) <= 0)
++			if ((lines = atoi(*argv + 1)) < 0)
+ 				errx(EXIT_FAILURE, _("invalid number of lines"));
+ 		}
+ 		else

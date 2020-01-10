@@ -1,0 +1,11 @@
+diff -up util-linux-ng-2.17.2/misc-utils/rename.1.kzak util-linux-ng-2.17.2/misc-utils/rename.1
+--- util-linux-ng-2.17.2/misc-utils/rename.1.kzak	2014-06-12 10:24:23.608086176 +0200
++++ util-linux-ng-2.17.2/misc-utils/rename.1	2014-06-12 10:24:35.476216174 +0200
+@@ -45,7 +45,6 @@ rename .htm .html *.htm
+ will fix the extension of your html files.
+ 
+ .SH "SEE ALSO"
+-.BR mmv (1),
+ .BR mv (1)
+ .SH AVAILABILITY
+ The rename command is part of the util-linux-ng package and is available from

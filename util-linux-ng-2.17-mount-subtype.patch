@@ -1,0 +1,161 @@
+diff -up util-linux-ng-2.17.2/mount/devname.c.kzak util-linux-ng-2.17.2/mount/devname.c
+--- util-linux-ng-2.17.2/mount/devname.c.kzak	2010-02-04 12:53:56.000000000 +0100
++++ util-linux-ng-2.17.2/mount/devname.c	2011-01-17 13:05:33.000000000 +0100
+@@ -8,7 +8,7 @@ spec_to_devname(const char *spec)
+ {
+ 	if (!spec)
+ 		return NULL;
+-	if (is_pseudo_fs(spec))
++	if (nocanonicalize || is_pseudo_fs(spec))
+ 		return xstrdup(spec);
+ 	return fsprobe_get_devname_by_spec(spec);
+ }
+diff -up util-linux-ng-2.17.2/mount/fstab.5.kzak util-linux-ng-2.17.2/mount/fstab.5
+--- util-linux-ng-2.17.2/mount/fstab.5.kzak	2011-01-17 13:04:25.000000000 +0100
++++ util-linux-ng-2.17.2/mount/fstab.5	2011-01-17 13:03:21.000000000 +0100
+@@ -146,6 +146,14 @@ An entry
+ .I none
+ is useful for bind or move mounts.
+ 
++.BR mount (8)
++and
++.BR umount (8)
++support filesystem subtypes. The subtype is defined by '.subtype' suffix.  For
++example 'fuse.sshfs'. It's recommended to use subtype notation rather than add
++any prefix to the first fstab field (for example 'sshfs#example.com' is
++depreacated). 
++
+ The fourth field,
+ .RI ( fs_mntops ),
+ describes the mount options associated with the filesystem.
+diff -up util-linux-ng-2.17.2/mount/mount.8.kzak util-linux-ng-2.17.2/mount/mount.8
+--- util-linux-ng-2.17.2/mount/mount.8.kzak	2011-01-17 12:50:43.000000000 +0100
++++ util-linux-ng-2.17.2/mount/mount.8	2011-01-17 13:03:21.000000000 +0100
+@@ -581,6 +581,15 @@ was known as
+ Note, the real list of all supported filesystems depends on your
+ kernel.
+ 
++The programs
++.B mount
++and
++.B umount
++support filesystem subtypes.  The subtype is defined by '.subtype' suffix.  For
++example  'fuse.sshfs'. It's recommended to use subtype notation rather than add
++any prefix to the mount source (for example 'sshfs#example.com' is
++depreacated).
++
+ For most types all the
+ .B mount
+ program has to do is issue a simple
+@@ -2612,10 +2621,13 @@ The syntax of external mount helpers is:
+ .RB [ \-sfnv ]
+ .RB [ \-o
+ .IR options ]
++.RB [ \-t
++.IR type.subtype ]
+ .RE
+ 
+-where the <suffix> is filesystem type and \-sfnvo options have same meaning like
+-standard mount options.
++where the <type> is filesystem type and \-sfnvo options have same meaning like
++standard mount options. The \-t option is used  for filesystems with subtypes
++support (for example /sbin/mount.fuse -t fuse.sshfs).
+ 
+ .SH FILES
+ .TP 18n
+diff -up util-linux-ng-2.17.2/mount/mount.c.kzak util-linux-ng-2.17.2/mount/mount.c
+--- util-linux-ng-2.17.2/mount/mount.c.kzak	2011-01-17 12:50:43.000000000 +0100
++++ util-linux-ng-2.17.2/mount/mount.c	2011-01-17 13:01:05.000000000 +0100
+@@ -711,13 +711,23 @@ check_special_mountprog(const char *spec
+ 	  return 0;
+ 
+   if (strlen(type) < 100) {
++       int type_opt = 0;
++
+        sprintf(mountprog, "/sbin/mount.%s", type);
+-       if (stat(mountprog, &statbuf) == 0) {
++
++       res = stat(mountprog, &statbuf);
++       if (res == -1 && errno == ENOENT && strchr(type, '.')) {
++	    /* If type ends with ".subtype" try without it */
++	    *strrchr(mountprog, '.') = '\0';
++	    type_opt = 1;
++	    res = stat(mountprog, &statbuf);
++       }
++       if (!res) {
+ 	    if (verbose)
+ 		 fflush(stdout);
+ 	    res = fork();
+ 	    if (res == 0) {
+-		 char *oo, *mountargs[10];
++		 char *oo, *mountargs[12];
+ 		 int i = 0;
+ 
+ 		 if(setgid(getgid()) < 0)
+@@ -742,7 +752,11 @@ check_special_mountprog(const char *spec
+ 		      mountargs[i++] = "-o";				/* 8 */
+ 		      mountargs[i++] = oo;				/* 9 */
+ 		 }
+-		 mountargs[i] = NULL;					/* 10 */
++		 if (type_opt) {
++		      mountargs[i++] = "-t";			        /* 10 */
++		      mountargs[i++] = (char *) type;		        /* 11 */
++		 }
++		 mountargs[i] = NULL;				        /* 12 */
+ 
+ 		 if (verbose > 2) {
+ 			i = 0;
+diff -up util-linux-ng-2.17.2/mount/umount.8.kzak util-linux-ng-2.17.2/mount/umount.8
+--- util-linux-ng-2.17.2/mount/umount.8.kzak	2010-03-22 09:05:42.000000000 +0100
++++ util-linux-ng-2.17.2/mount/umount.8	2011-01-17 13:02:31.000000000 +0100
+@@ -141,9 +141,13 @@ The syntax of external umount helpers is
+ .BI /sbin/umount. <suffix>
+ .RI { dir | device }
+ .RB [ \-nlfvr ]
++.RB [ \-t
++.IR type.subtype ]
+ .br
+ 
+ where the <suffix> is filesystem type or a value from "uhelper=" mtab option.
++The \-t option is used  for filesystems with subtypes support (for example
++/sbin/mount.fuse -t fuse.sshfs).
+ 
+ The uhelper (unprivileged umount helper) is possible to used when non-root user
+ wants to umount a mountpoint which is not defined in the /etc/fstab file (e.g
+diff -up util-linux-ng-2.17.2/mount/umount.c.kzak util-linux-ng-2.17.2/mount/umount.c
+--- util-linux-ng-2.17.2/mount/umount.c.kzak	2010-03-22 09:05:42.000000000 +0100
++++ util-linux-ng-2.17.2/mount/umount.c	2011-01-17 12:51:16.000000000 +0100
+@@ -100,11 +100,20 @@ check_special_umountprog(const char *spe
+ 		return 0;
+ 
+ 	if (strlen(type) < 100) {
++		int type_opt = 0;
++
+ 		sprintf(umountprog, "/sbin/umount.%s", type);
+-		if (stat(umountprog, &statbuf) == 0) {
++		res = stat(umountprog, &statbuf);
++		if (res == -1 && errno == ENOENT && strchr(type, '.')) {
++			/* If type ends with ".subtype" try without it */
++			*strrchr(umountprog, '.') = '\0';
++			type_opt = 1;
++			res = stat(umountprog, &statbuf);
++		}
++		if (res == 0) {
+ 			res = fork();
+ 			if (res == 0) {
+-				char *umountargs[8];
++				char *umountargs[10];
+ 				int i = 0;
+ 
+ 				if(setgid(getgid()) < 0)
+@@ -125,6 +134,10 @@ check_special_umountprog(const char *spe
+ 					umountargs[i++] = "-v";
+ 				if (remount)
+ 					umountargs[i++] = "-r";
++				if (type_opt) {
++					umountargs[i++] = "-t";
++					umountargs[i++] = (char *) type;
++				}
+ 				umountargs[i] = NULL;
+ 				execv(umountprog, umountargs);
+ 				exit(1);	/* exec failed */

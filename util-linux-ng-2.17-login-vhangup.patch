@@ -1,0 +1,21 @@
+diff -up util-linux-ng-2.17.2/login-utils/login.c.kzak util-linux-ng-2.17.2/login-utils/login.c
+--- util-linux-ng-2.17.2/login-utils/login.c.kzak	2016-02-12 16:44:40.579980831 +0100
++++ util-linux-ng-2.17.2/login-utils/login.c	2016-02-12 16:45:26.674643845 +0100
+@@ -544,7 +544,16 @@ main(int argc, char **argv)
+ 	fchmod(0, TTY_MODE);
+ 
+ 	/* Kill processes left on this tty */
+-	tcsetattr(0,TCSAFLUSH,&ttt);
++	tcsetattr(0, TCSANOW, &ttt);
++
++       /*
++	* Let's close file decriptors before vhangup
++	* https://lkml.org/lkml/2012/6/5/145
++	*/
++	close(STDIN_FILENO);
++	close(STDOUT_FILENO);
++	close(STDERR_FILENO);
++
+ 	signal(SIGHUP, SIG_IGN); /* so vhangup() wont kill us */
+ 	vhangup();
+ 	signal(SIGHUP, SIG_DFL);

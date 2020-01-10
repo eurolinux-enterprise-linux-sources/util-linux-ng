@@ -1,0 +1,30 @@
+diff -up util-linux-ng-2.17.2/fdisk/fdisksgilabel.c.kzak util-linux-ng-2.17.2/fdisk/fdisksgilabel.c
+--- util-linux-ng-2.17.2/fdisk/fdisksgilabel.c.kzak	2014-06-12 11:58:54.739067396 +0200
++++ util-linux-ng-2.17.2/fdisk/fdisksgilabel.c	2014-06-12 11:57:48.351342730 +0200
+@@ -701,7 +701,10 @@ create_sgilabel(void)
+ 	res = blkdev_get_sectors(fd, &llsectors);
+ 
+ #ifdef HDIO_GETGEO
+-	if (!ioctl(fd, HDIO_GETGEO, &geometry)) {
++	if (ioctl(fd, HDIO_GETGEO, &geometry) == 0
++	    && geometry.heads
++	    && geometry.sectors) {
++
+ 		heads = geometry.heads;
+ 		sectors = geometry.sectors;
+ 		if (res == 0) {
+diff -up util-linux-ng-2.17.2/fdisk/fdisksunlabel.c.kzak util-linux-ng-2.17.2/fdisk/fdisksunlabel.c
+--- util-linux-ng-2.17.2/fdisk/fdisksunlabel.c.kzak	2014-06-12 11:56:19.969378204 +0200
++++ util-linux-ng-2.17.2/fdisk/fdisksunlabel.c	2014-06-12 11:56:45.537657207 +0200
+@@ -208,7 +208,10 @@ void create_sunlabel(void)
+ 	sec_fac = sector_size / 512;
+ 
+ #ifdef HDIO_GETGEO
+-	if (!ioctl(fd, HDIO_GETGEO, &geometry)) {
++	if (ioctl(fd, HDIO_GETGEO, &geometry) == 0
++	    && geometry.heads
++	    && geometry.sectors) {
++
+ 	        heads = geometry.heads;
+ 	        sectors = geometry.sectors;
+ 		if (res == 0) {

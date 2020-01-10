@@ -1,0 +1,12 @@
+diff -up util-linux-ng-2.17.2/shlibs/blkid/src/superblocks/swap.c.kzak util-linux-ng-2.17.2/shlibs/blkid/src/superblocks/swap.c
+--- util-linux-ng-2.17.2/shlibs/blkid/src/superblocks/swap.c.kzak	2010-03-18 23:11:23.000000000 +0100
++++ util-linux-ng-2.17.2/shlibs/blkid/src/superblocks/swap.c	2012-10-03 11:22:53.472665640 +0200
+@@ -54,7 +54,7 @@ static int swap_set_info(blkid_probe pr,
+ 		if (hdr->volume[0] && blkid_probe_set_label(pr, hdr->volume,
+ 				sizeof(hdr->volume)) < 0)
+ 			return -1;
+-		if (hdr->uuid[0] && blkid_probe_set_uuid(pr, hdr->uuid) < 0)
++		if (blkid_probe_set_uuid(pr, hdr->uuid) < 0)
+ 			return -1;
+ 	}
+ 

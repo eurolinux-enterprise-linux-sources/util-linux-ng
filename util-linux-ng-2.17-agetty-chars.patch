@@ -1,0 +1,153 @@
+diff -up util-linux-ng-2.17.2/login-utils/agetty.8.kzak util-linux-ng-2.17.2/login-utils/agetty.8
+--- util-linux-ng-2.17.2/login-utils/agetty.8.kzak	2013-07-15 17:13:12.218715201 +0200
++++ util-linux-ng-2.17.2/login-utils/agetty.8	2013-07-15 17:15:07.495863381 +0200
+@@ -38,6 +38,7 @@ The program can handle 7-bit characters
+ parity, and 8-bit characters with no parity. The following special
+ characters are recognized: @ and Control-U (kill); #, DEL and
+ back space (erase); carriage return and line feed (end of line).
++See also \fB\-\-erase-chars\fP and \fB\-\-kill-chars\fP options.
+ .IP o
+ Optionally deduces the baud rate from the CONNECT messages produced by
+ Hayes(tm)-compatible modems.
+@@ -192,6 +193,16 @@ this has no support for any unicode char
+ Wait for the user or the modem to send a carriage-return or a
+ linefeed character before sending the \fI/etc/issue\fP (or other) file
+ and the login prompt. Very useful in connection with the \-I option.
++.TP
++\-\-erase\-chars \fIstring\fP
++This option specifies additional chars that should be interpreted as a
++backspace (ignore previous char) when user specifies login name. The default is
++\'#\', specify empty string to disable the default.
++.TP
++\-\-kill\-chars \fIstring\fP
++This option specifies additional chars that should be interpreted as a
++kill (ignore all previous chars) when user specifies login name. 
++The default is \'@\', specify empty string to disable the default.
+ .PP
+ .SH EXAMPLES
+ This section shows examples for the process field of an entry in the
+diff -up util-linux-ng-2.17.2/login-utils/agetty.c.kzak util-linux-ng-2.17.2/login-utils/agetty.c
+--- util-linux-ng-2.17.2/login-utils/agetty.c.kzak	2013-07-15 17:13:05.530692743 +0200
++++ util-linux-ng-2.17.2/login-utils/agetty.c	2013-07-15 17:43:55.537479930 +0200
+@@ -31,6 +31,7 @@
+ #include <sys/file.h>
+ #include <sys/socket.h>
+ #include <netdb.h>
++#include <getopt.h>
+ 
+ #include "xstrncpy.h"
+ #include "nls.h"
+@@ -121,6 +122,8 @@ struct options {
+     char   *issue;			/* alternative issue file */
+     int     numspeed;			/* number of baud rates to try */
+     int     clocal;			/* CLOCAL_MODE_* */
++    char   *erasechars;			/* string with erase chars */
++    char   *killchars;			/* string with kill chars */
+     int     speeds[MAX_SPEED];		/* baud rates to be tried */
+     int     eightbits;			/* assume 8bit-clean tty */
+ };
+@@ -250,19 +253,19 @@ main(argc, argv)
+     struct chardata chardata;		/* set by get_logname() */
+     struct termios termios;		/* terminal mode bits */
+     static struct options options = {
+-	F_ISSUE,			/* show /etc/issue (SYSV_STYLE) */
+-	0,				/* no timeout */
+-	_PATH_LOGIN,			/* default login program */
+-	"tty1",				/* default tty line */
+-	"",				/* modem init string */
+-	ISSUE,				/* default issue file */
+-	0,				/* no baud rates known yet */
++	.flags      = F_ISSUE,		/* show /etc/issue (SYSV_STYLE) */
++	.login      = _PATH_LOGIN,	/* default login program */
++	.tty        = "tty1",		/* default tty line */
++	.initstring = "",		/* modem init string */
++	.issue      = ISSUE,		/* default issue file */
++	.erasechars = "#",
++	.killchars  = "@"
+     };
+ 
+        setlocale(LC_ALL, "");
+        bindtextdomain(PACKAGE, LOCALEDIR);
+        textdomain(PACKAGE);
+-    
++
+     /* The BSD-style init command passes us a useless process name. */
+ 
+ #ifdef	SYSV_STYLE
+@@ -389,7 +392,19 @@ parse_args(argc, argv, op)
+     extern int optind;			/* getopt */
+     int     c;
+ 
+-    while (isascii(c = getopt(argc, argv, "8I:L::H:Ef:hil:mt:wUn"))) {
++    enum {
++	    ERASE_CHARS_OPTION = CHAR_MAX + 1,
++	    KILL_CHARS_OPTION,
++    };
++
++    const struct option longopts[] = {
++	{  "erase-chars",    required_argument,  0,  ERASE_CHARS_OPTION },
++	{  "kill-chars",     required_argument,  0,  KILL_CHARS_OPTION },
++	{ NULL, 0, 0, 0 }
++    };
++
++    while ((c = getopt_long(argc, argv,
++			"8I:L::H:Ef:hil:mt:wUn", longopts, NULL)) != -1) {
+ 	switch (c) {
+ 	case '8':
+ 	    op->eightbits = 1;
+@@ -483,6 +498,12 @@ parse_args(argc, argv, op)
+ 	case 'U':
+ 	    op->flags |= F_LCUC;
+ 	    break;
++	case ERASE_CHARS_OPTION:
++	    op->erasechars = optarg;
++	    break;
++	case KILL_CHARS_OPTION:
++	    op->killchars = optarg;
++	    break;
+ 	default:
+ 	    usage();
+ 	}
+@@ -1060,6 +1081,7 @@ char   *get_logname(op, cp, tp)
+ 	/* Read name, watch for break, parity, erase, kill, end-of-line. */
+ 
+ 	for (bp = logname, cp->eol = 0; cp->eol == 0; /* void */ ) {
++	    int key;
+ 
+ 	    /* Do not report trivial EINTR/EIO errors. */
+ 
+@@ -1082,9 +1104,17 @@ char   *get_logname(op, cp, tp)
+ 			bits++;			/* count "1" bits */
+ 		cp->parity |= ((bits & 1) ? 1 : 2);
+ 	    }
++
++	    if (op->killchars && strchr(op->killchars, ascval))
++		key = CTL('U');
++	    else if (op->erasechars && strchr(op->erasechars, ascval))
++		key = DEL;
++	    else
++		key = ascval;
++
+ 	    /* Do erase, kill and end-of-line processing. */
+ 
+-	    switch (ascval) {
++	    switch (key) {
+ 	    case CR:
+ 	    case NL:
+ 		*bp = 0;			/* terminate logname */
+@@ -1092,7 +1122,6 @@ char   *get_logname(op, cp, tp)
+ 		break;
+ 	    case BS:
+ 	    case DEL:
+-	    case '#':
+ 		cp->erase = ascval;		/* set erase character */
+ 		if (bp > logname) {
+ 		    (void) write(1, erase[cp->parity], 3);
+@@ -1100,7 +1129,6 @@ char   *get_logname(op, cp, tp)
+ 		}
+ 		break;
+ 	    case CTL('U'):
+-	    case '@':
+ 		cp->kill = ascval;		/* set kill character */
+ 		while (bp > logname) {
+ 		    (void) write(1, erase[cp->parity], 3);

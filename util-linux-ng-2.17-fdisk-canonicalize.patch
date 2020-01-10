@@ -1,0 +1,138 @@
+diff -up util-linux-ng-2.17.2/fdisk/fdisk.c.kzak util-linux-ng-2.17.2/fdisk/fdisk.c
+--- util-linux-ng-2.17.2/fdisk/fdisk.c.kzak	2011-01-12 11:40:04.000000000 +0100
++++ util-linux-ng-2.17.2/fdisk/fdisk.c	2011-01-12 11:42:23.000000000 +0100
+@@ -27,6 +27,8 @@
+ #include "common.h"
+ #include "fdisk.h"
+ #include "wholedisk.h"
++#include "pathnames.h"
++#include "canonicalize.h"
+ 
+ #include "fdisksunlabel.h"
+ #include "fdisksgilabel.h"
+@@ -2870,9 +2872,9 @@ tryprocpt(void) {
+ 	int ma, mi;
+ 	unsigned long long sz;
+ 
+-	procpt = fopen(PROC_PARTITIONS, "r");
++	procpt = fopen(_PATH_PROC_PARTITIONS, "r");
+ 	if (procpt == NULL) {
+-		fprintf(stderr, _("cannot open %s\n"), PROC_PARTITIONS);
++		fprintf(stderr, _("cannot open %s\n"), _PATH_PROC_PARTITIONS);
+ 		return;
+ 	}
+ 
+@@ -2881,8 +2883,13 @@ tryprocpt(void) {
+ 			    &ma, &mi, &sz, ptname) != 4)
+ 			continue;
+ 		snprintf(devname, sizeof(devname), "/dev/%s", ptname);
+-		if (is_whole_disk(devname))
+-			try(devname, 0);
++		if (is_whole_disk(devname)) {
++			char *cn = canonicalize_path(devname);
++			if (cn) {
++				try(cn, 0);
++				free(cn);
++			}
++		}
+ 	}
+ 	fclose(procpt);
+ }
+diff -up util-linux-ng-2.17.2/fdisk/fdisk.h.kzak util-linux-ng-2.17.2/fdisk/fdisk.h
+--- util-linux-ng-2.17.2/fdisk/fdisk.h.kzak	2010-03-18 23:11:23.000000000 +0100
++++ util-linux-ng-2.17.2/fdisk/fdisk.h	2011-01-12 11:40:04.000000000 +0100
+@@ -109,4 +109,3 @@ extern void xbsd_print_disklabel(int);
+ /* prototypes for fdisksgilabel.c */
+ extern int valid_part_table_flag(unsigned char *b);
+ 
+-#define PROC_PARTITIONS "/proc/partitions"
+diff -up util-linux-ng-2.17.2/fdisk/Makefile.am.kzak util-linux-ng-2.17.2/fdisk/Makefile.am
+--- util-linux-ng-2.17.2/fdisk/Makefile.am.kzak	2010-03-22 09:05:41.000000000 +0100
++++ util-linux-ng-2.17.2/fdisk/Makefile.am	2011-01-12 11:41:35.000000000 +0100
+@@ -16,7 +16,8 @@ dist_man_MANS = fdisk.8
+ fdisk_SOURCES = fdisk.c fdiskbsdlabel.c fdisksgilabel.c \
+ 	fdisksunlabel.c fdiskaixlabel.c fdiskmaclabel.c partname.c \
+ 	fdisk.h fdisksunlabel.h fdisksgilabel.h fdiskaixlabel.h \
+-	fdiskbsdlabel.h fdiskmaclabel.h $(fdisk_common)
++	fdiskbsdlabel.h fdiskmaclabel.h $(fdisk_common) \
++	$(top_srcdir)/lib/canonicalize.c
+ 
+ cflags_fdisk = $(AM_CFLAGS)
+ ldadd_fdisk =
+@@ -43,7 +44,8 @@ if !ARCH_SPARC
+ 
+ sbin_PROGRAMS += sfdisk
+ dist_man_MANS += sfdisk.8
+-sfdisk_SOURCES = sfdisk.c partname.c $(fdisk_common)
++sfdisk_SOURCES = sfdisk.c partname.c $(fdisk_common) \
++	$(top_srcdir)/lib/canonicalize.c
+ 
+ if HAVE_STATIC_SFDISK
+ sbin_PROGRAMS += sfdisk.static
+diff -up util-linux-ng-2.17.2/fdisk/sfdisk.c.kzak util-linux-ng-2.17.2/fdisk/sfdisk.c
+--- util-linux-ng-2.17.2/fdisk/sfdisk.c.kzak	2010-03-18 23:11:23.000000000 +0100
++++ util-linux-ng-2.17.2/fdisk/sfdisk.c	2011-01-12 11:40:04.000000000 +0100
+@@ -54,6 +54,8 @@
+ #include "common.h"
+ #include "wholedisk.h"
+ #include "gpt.h"
++#include "pathnames.h"
++#include "canonicalize.h"
+ 
+ /*
+  * Table of contents:
+@@ -2418,8 +2420,6 @@ is_ide_cdrom_or_tape(char *device) {
+ 	return is_ide;
+ }
+ 
+-#define PROC_PARTITIONS	"/proc/partitions"
+-
+ static char *
+ nextproc(FILE *procf) {
+ 	static char devname[256];
+@@ -2436,7 +2436,7 @@ nextproc(FILE *procf) {
+ 		snprintf(devname, sizeof(devname), "/dev/%s", ptname);
+ 		if (!is_whole_disk(devname))
+ 			continue;
+-		return devname;
++		return canonicalize_path(devname);
+ 	}
+ 
+ 	return NULL;
+@@ -2603,22 +2603,23 @@ main(int argc, char **argv) {
+ 	/* try all known devices */
+ 	total_size = 0;
+ 
+-	procf = fopen(PROC_PARTITIONS, "r");
++	procf = fopen(_PATH_PROC_PARTITIONS, "r");
+ 	if (!procf)
+-	    fprintf(stderr, _("cannot open %s\n"), PROC_PARTITIONS);
++	    fprintf(stderr, _("cannot open %s\n"), _PATH_PROC_PARTITIONS);
+ 	else {
+ 	    while ((dev = nextproc(procf)) != NULL) {
+-	        if (is_ide_cdrom_or_tape(dev))
+-		   continue;
+-	        gpt_warning(dev, 1);
+-	        if (opt_out_geom)
+-		   do_geom(dev, 1);
+-	        if (opt_out_pt_geom)
+-		   do_pt_geom(dev, 1);
+-	        if (opt_size)
+-		   do_size(dev, 1);
+-	        if (opt_list || verify)
+-		   do_list(dev, 1);
++	        if (!is_ide_cdrom_or_tape(dev)) {
++	            gpt_warning(dev, 1);
++	            if (opt_out_geom)
++		        do_geom(dev, 1);
++	            if (opt_out_pt_geom)
++		        do_pt_geom(dev, 1);
++	            if (opt_size)
++		        do_size(dev, 1);
++	            if (opt_list || verify)
++		        do_list(dev, 1);
++		}
++		free(dev);
+ 	    }
+ 	    fclose(procf);
+ 	}

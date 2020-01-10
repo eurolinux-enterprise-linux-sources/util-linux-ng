@@ -1,0 +1,20 @@
+diff -up util-linux-ng-2.17.2/misc-utils/script.c.kzak util-linux-ng-2.17.2/misc-utils/script.c
+--- util-linux-ng-2.17.2/misc-utils/script.c.kzak	2012-03-05 11:58:34.591047804 +0100
++++ util-linux-ng-2.17.2/misc-utils/script.c	2012-03-05 12:10:51.297283785 +0100
+@@ -400,6 +400,16 @@ doshell() {
+ 	else
+ 		shname = shell;
+ 
++	/*
++	 * When invoked from within /etc/csh.login, script spawns a csh shell
++	 * that spawns programs that cannot be killed with a SIGTERM. This is
++	 * because csh has a documented behaviour wherein it disables all
++	 * signals when processing the /etc/csh.* files.
++	 *
++	 * Let's restore the default behavior.
++	 */
++	signal(SIGTERM, SIG_DFL);
++
+ 	if (cflg)
+ 		execl(shell, shname, "-c", cflg, NULL);
+ 	else

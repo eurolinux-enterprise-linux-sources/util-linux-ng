@@ -1,0 +1,64 @@
+diff -up util-linux-ng-2.17.2/misc-utils/findmnt.c.kzak util-linux-ng-2.17.2/misc-utils/findmnt.c
+--- util-linux-ng-2.17.2/misc-utils/findmnt.c.kzak	2011-08-09 13:29:13.245555120 +0200
++++ util-linux-ng-2.17.2/misc-utils/findmnt.c	2011-08-09 13:33:18.833471699 +0200
+@@ -422,7 +422,8 @@ static mnt_fs *get_next_fs(mnt_tab *tb, 
+ 		/*
+ 		 * Print whole file
+ 		 */
+-		mnt_tab_next_fs(tb, itr, &fs);
++		if (mnt_tab_next_fs(tb, itr, &fs) != 0)
++			return NULL;
+ 
+ 	} else if (is_mount_compatible_mode()) {
+ 		/*
+diff -up util-linux-ng-2.17.2/shlibs/mount/src/fs.c.kzak util-linux-ng-2.17.2/shlibs/mount/src/fs.c
+--- util-linux-ng-2.17.2/shlibs/mount/src/fs.c.kzak	2011-08-09 14:57:48.317849493 +0200
++++ util-linux-ng-2.17.2/shlibs/mount/src/fs.c	2011-08-09 14:55:00.553811269 +0200
+@@ -475,6 +475,10 @@ int mnt_fs_append_options(mnt_fs *fs, co
+ 	if (!rc && u)
+ 	       rc = mnt_optstr_append_option(&fs->user_optstr, u, NULL);
+ 
++	free(u);
++	free(v);
++	free(f);
++
+ 	return rc;
+ }
+ 
+@@ -510,6 +514,10 @@ int mnt_fs_prepend_options(mnt_fs *fs, c
+ 	if (!rc && u)
+ 		rc = mnt_optstr_prepend_option(&fs->user_optstr, u, NULL);
+ 
++	free(u);
++	free(v);
++	free(f);
++
+ 	return rc;
+ }
+ 
+diff -up util-linux-ng-2.17.2/shlibs/mount/src/optstr.c.kzak util-linux-ng-2.17.2/shlibs/mount/src/optstr.c
+--- util-linux-ng-2.17.2/shlibs/mount/src/optstr.c.kzak	2011-08-09 14:51:02.726923535 +0200
++++ util-linux-ng-2.17.2/shlibs/mount/src/optstr.c	2011-08-09 14:50:45.747717451 +0200
+@@ -475,19 +475,19 @@ int mnt_split_optstr(const char *optstr,
+ 
+ 	while(!mnt_optstr_next_option(&str, &name, &namesz, &val, &valsz)) {
+ 		int rc = 0;
+-		const struct mnt_optmap *ent;
++		const struct mnt_optmap *ent = NULL;
+ 		const struct mnt_optmap *m =
+ 			 mnt_optmap_get_entry(maps, 2, name, namesz, &ent);
+ 
+ 		if (ent && !ent->id)
+ 			continue;	/* ignore undefined options (comments) */
+ 
+-		if (m && m == maps[0] && vfs) {
++		if (ent && m && m == maps[0] && vfs) {
+ 			if (ignore_vfs && (ent->mask & ignore_vfs))
+ 				continue;
+ 			rc = __mnt_optstr_append_option(vfs, name, namesz,
+ 								val, valsz);
+-		} else if (m && m == maps[1] && user) {
++		} else if (ent && m && m == maps[1] && user) {
+ 			if (ignore_user && (ent->mask & ignore_user))
+ 				continue;
+ 			rc = __mnt_optstr_append_option(user, name, namesz,

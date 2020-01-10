@@ -1,0 +1,12 @@
+diff -up util-linux-ng-2.17.2/text-utils/parse.c.kzak util-linux-ng-2.17.2/text-utils/parse.c
+--- util-linux-ng-2.17.2/text-utils/parse.c.kzak	2013-07-16 11:39:58.207546217 +0200
++++ util-linux-ng-2.17.2/text-utils/parse.c	2013-07-16 11:39:12.896188935 +0200
+@@ -423,7 +423,7 @@ isint2:					switch(fu->bcnt) {
+ 		if (!fu->nextfu && fs->bcnt < blocksize &&
+ 		    !(fu->flags&F_SETREP) && fu->bcnt)
+ 			fu->reps += (blocksize - fs->bcnt) / fu->bcnt;
+-		if (fu->reps > 1) {
++		if (fu->reps > 1 && fu->nextpr) {
+ 			for (pr = fu->nextpr;; pr = pr->nextpr)
+ 				if (!pr->nextpr)
+ 					break;

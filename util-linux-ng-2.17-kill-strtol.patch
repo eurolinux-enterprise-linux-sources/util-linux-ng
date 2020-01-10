@@ -1,0 +1,22 @@
+diff -up util-linux-ng-2.17.2/misc-utils/kill.c.kzak util-linux-ng-2.17.2/misc-utils/kill.c
+--- util-linux-ng-2.17.2/misc-utils/kill.c.kzak	2014-06-12 14:53:59.812007479 +0200
++++ util-linux-ng-2.17.2/misc-utils/kill.c	2014-06-12 15:01:36.834999436 +0200
+@@ -49,6 +49,7 @@
+ #include <ctype.h>		/* for isdigit() */
+ #include <unistd.h>
+ #include <signal.h>
++#include <errno.h>
+ 
+ #include "c.h"
+ #include "kill.h"
+@@ -260,8 +261,9 @@ int main (int argc, char *argv[])
+ 	the rest of the arguments should be process ids and names.
+ 	kill them.  */
+     for (errors = 0; (arg = *argv) != NULL; argv++) {
++	errno = 0;
+ 	pid = strtol (arg, &ep, 10);
+-	if (! *ep)
++	if (errno == 0 && ep && *ep == '\0' && arg < ep)
+ 	    errors += kill_verbose (arg, pid, numsig);
+ 	else {
+ 	    pids = get_pids (arg, check_all);

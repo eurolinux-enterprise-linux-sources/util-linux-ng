@@ -1,0 +1,26 @@
+diff -up util-linux-ng-2.17.2/mount/umount.8.kzak util-linux-ng-2.17.2/mount/umount.8
+--- util-linux-ng-2.17.2/mount/umount.8.kzak	2015-12-18 10:09:25.642756019 +0100
++++ util-linux-ng-2.17.2/mount/umount.8	2015-12-18 10:10:19.321369757 +0100
+@@ -124,8 +124,8 @@ Don't canonicalize paths. For more detai
+ .B mount(8)
+ man page.
+ .IP "\fB\-\-fake\fP"
+-Causes everything to be done except for the actual system call; this
+-``fakes'' unmounting the filesystem.  It can  be used to remove
++Causes everything to be done except for the actual system call or umount helper
++execution; this ``fakes'' unmounting the filesystem.  It can  be used to remove
+ entries from
+ .I /etc/mtab
+ that were unmounted earlier with the -n option.
+diff -up util-linux-ng-2.17.2/mount/umount.c.kzak util-linux-ng-2.17.2/mount/umount.c
+--- util-linux-ng-2.17.2/mount/umount.c.kzak	2015-12-18 10:08:06.523325348 +0100
++++ util-linux-ng-2.17.2/mount/umount.c	2015-12-18 10:07:56.570396968 +0100
+@@ -223,7 +223,7 @@ umount_one (const char *spec, const char
+ 	 * Call umount.TYPE for types that require a separate umount program.
+ 	 * All such special things must occur isolated in the types string.
+ 	 */
+-	if (check_special_umountprog(spec, node, type, &status))
++	if (!fake && check_special_umountprog(spec, node, type, &status))
+ 		return status;
+ 
+ 	block_signals(SIG_BLOCK);

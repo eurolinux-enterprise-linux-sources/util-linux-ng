@@ -1,0 +1,25 @@
+diff -up util-linux-ng-2.17.2/mount/swapon.c.kzak util-linux-ng-2.17.2/mount/swapon.c
+--- util-linux-ng-2.17.2/mount/swapon.c.kzak	2010-03-22 09:09:12.000000000 +0100
++++ util-linux-ng-2.17.2/mount/swapon.c	2011-08-10 15:21:26.447869718 +0200
+@@ -22,6 +22,7 @@
+ #include "fsprobe.h"
+ #include "pathnames.h"
+ #include "swapheader.h"
++#include "canonicalize.h"
+ 
+ #define PATH_MKSWAP	"/sbin/mkswap"
+ 
+@@ -173,11 +174,12 @@ read_proc_swaps(void) {
+ 			break;
+ 		swapFiles = q;
+ 
+-		swapFiles[numSwaps++] = strdup(line);
++		swapFiles[numSwaps++] = canonicalize_path(line);
+ 	}
+ 	fclose(swaps);
+ }
+ 
++/* note that swapFiles are always canonicalized */
+ static int
+ is_in_proc_swaps(const char *fname) {
+ 	int i;

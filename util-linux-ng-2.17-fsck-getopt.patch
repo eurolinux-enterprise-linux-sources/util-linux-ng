@@ -1,0 +1,13 @@
+diff -up util-linux-ng-2.17.2/fsck/fsck.c.kzak util-linux-ng-2.17.2/fsck/fsck.c
+--- util-linux-ng-2.17.2/fsck/fsck.c.kzak	2011-02-22 11:35:01.000000000 +0100
++++ util-linux-ng-2.17.2/fsck/fsck.c	2011-02-22 11:35:42.000000000 +0100
+@@ -1220,8 +1220,8 @@ static void PRS(int argc, char *argv[])
+ 					if (progress_fd < 0)
+ 						progress_fd = 0;
+ 					else {
++						++i;
+ 						goto next_arg;
+-						i++;
+ 					}
+ 				}
+ 				break;

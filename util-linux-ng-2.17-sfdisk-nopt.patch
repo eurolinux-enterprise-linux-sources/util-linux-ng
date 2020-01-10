@@ -1,0 +1,57 @@
+
+ based on upstream patch:
+
+	commit b2d4a671a5432220ba3fc9a09a31df66695ad926
+	Author: Karel Zak <kzak@redhat.com>
+	Date:   Fri Apr 6 10:12:32 2012 +0200
+
+diff -up util-linux-ng-2.17.2/fdisk/sfdisk.c.kzak util-linux-ng-2.17.2/fdisk/sfdisk.c
+--- util-linux-ng-2.17.2/fdisk/sfdisk.c.kzak	2012-04-06 14:20:56.289429342 +0200
++++ util-linux-ng-2.17.2/fdisk/sfdisk.c	2012-04-06 14:29:27.432696091 +0200
+@@ -237,8 +237,6 @@ msdos_signature (struct sector *s) {
+     unsigned char *data = (unsigned char *)s->data;
+     if (data[510] == 0x55 && data[511] == 0xaa)
+ 	    return 1;
+-    error(_("ERROR: sector %lu does not have an msdos signature\n"),
+-	  s->sectornumber);
+     return 0;
+ }
+ 
+@@ -1131,9 +1129,10 @@ static void
+ out_partitions(char *dev, struct disk_desc *z) {
+     int pno, format = 0;
+ 
+-    if (z->partno == 0)
+-	do_warn(_("No partitions found\n"));
+-    else {
++    if (z->partno == 0) {
++	if (!opt_list)
++	    do_warn(_("No partitions found\n"));
++    } else {
+ 	if (get_fdisk_geometry(z) && !dump) {
+ 	    do_warn(
+ 	   _("Warning: The partition table looks like it was made\n"
+@@ -1395,9 +1394,11 @@ extended_partition(char *dev, int fd, st
+ 	if (!(s = get_sector(dev, fd, here)))
+ 	    break;
+ 
+-	if (!msdos_signature(s))
++	if (!msdos_signature(s)) {
++	    error(_("ERROR: sector %lu does not have an msdos signature\n"),
++	          s->sectornumber);
+ 	    break;
+-
++	}
+ 	cp = s->data + 0x1be;
+ 
+ 	if (pno+4 >= ARRAY_SIZE(z->partitions)) {
+@@ -1603,7 +1604,8 @@ get_partitions(char *dev, int fd, struct
+ 	&& !osf_partition(dev, fd, 0, z)
+ 	&& !sun_partition(dev, fd, 0, z)
+ 	&& !amiga_partition(dev, fd, 0, z)) {
+-	do_warn(_(" %s: unrecognized partition table type\n"), dev);
++	if (!opt_list)
++	    do_warn(_(" %s: unrecognized partition table type\n"), dev);
+ 	return;
+     }
+ }

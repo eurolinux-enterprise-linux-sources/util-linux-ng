@@ -1,0 +1,102 @@
+From 97a3cef4f1f18c30d662eda5cf072cc27825a55c Mon Sep 17 00:00:00 2001
+From: Miklos Szeredi <miklos@szeredi.hu>
+Date: Mon, 8 Mar 2010 19:01:13 +0100
+Subject: [PATCH] umount: add --fake option to umount(8)
+
+Add --fake option to umount(8), which omits calling the actual umount
+syscall (and the loop device deletion) but modifies /etc/mtab.  This
+is similar to the -f or --fake option to mount(8).
+
+This would allow some simplifications in fuse by allowing it to call
+the umount syscall and letting umount(8) just update mtab.
+
+[kzak@redhat.com: - initialize 'res' variable in umount_one() ]
+
+Signed-off-by: Miklos Szeredi <mszeredi@suse.cz>
+Signed-off-by: Karel Zak <kzak@redhat.com>
+---
+ mount/umount.8 |    6 ++++++
+ mount/umount.c |   15 +++++++++++++--
+ 2 files changed, 19 insertions(+), 2 deletions(-)
+
+diff --git a/mount/umount.8 b/mount/umount.8
+index aa90411..5ef861a 100644
+--- a/mount/umount.8
++++ b/mount/umount.8
+@@ -123,6 +123,12 @@ anymore.
+ Don't canonicalize paths. For more details about this option see the
+ .B mount(8)
+ man page.
++.IP "\fB\-\-fake\fP"
++Causes everything to be done except for the actual system call; this
++``fakes'' unmounting the filesystem.  It can  be used to remove
++entries from
++.I /etc/mtab
++that were unmounted earlier with the -n option.
+ 
+ .SH "THE LOOP DEVICE"
+ The
+diff --git a/mount/umount.c b/mount/umount.c
+index 7f14655..6786ac5 100644
+--- a/mount/umount.c
++++ b/mount/umount.c
+@@ -81,6 +81,9 @@ int restricted = 1;
+ int complained_err = 0;
+ char *complained_dev = NULL;
+ 
++/* True for fake umount (--fake).  */
++static int fake = 0;
++
+ /*
+  * check_special_umountprog()
+  *	If there is a special umount program for this type, exec it.
+@@ -187,7 +190,7 @@ umount_one (const char *spec, const char *node, const char *type,
+ 	    const char *opts, struct mntentchn *mc) {
+ 	int umnt_err = 0;
+ 	int isroot;
+-	int res;
++	int res = 0;
+ 	int status;
+ 	const char *loopdev;
+ 	int myloop = 0;
+@@ -210,6 +213,9 @@ umount_one (const char *spec, const char *node, const char *type,
+ 	if (check_special_umountprog(spec, node, type, &status))
+ 		return status;
+ 
++	/* Skip the actual umounting for --fake */
++	if (fake)
++		goto writemtab;
+ 	/*
+ 	 * Ignore the option "-d" for non-loop devices and loop devices with
+ 	 * LO_FLAGS_AUTOCLEAR flag.
+@@ -390,6 +396,7 @@ static struct option longopts[] =
+   { "types", 1, 0, 't' },
+ 
+   { "no-canonicalize", 0, 0, 144 },
++  { "fake", 0, 0, 145 },
+   { NULL, 0, 0, 0 }
+ };
+ 
+@@ -679,6 +686,9 @@ main (int argc, char *argv[]) {
+ 		case 144:
+ 			nocanonicalize = 1;
+ 			break;
++		case 145:
++			fake = 1;
++			break;
+ 		case 0:
+ 			break;
+ 		case '?':
+@@ -697,7 +707,8 @@ main (int argc, char *argv[]) {
+ 	}
+ 
+ 	if (restricted &&
+-	    (all || types || nomtab || force || remount || nocanonicalize)) {
++	    (all || types || nomtab || force || remount || nocanonicalize ||
++	     fake)) {
+ 		die (2, _("umount: only root can do that"));
+ 	}
+ 
+-- 
+1.7.3.4
+

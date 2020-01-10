@@ -1,0 +1,16 @@
+diff -up util-linux-ng-2.17.2/hwclock/hwclock.8.kzak util-linux-ng-2.17.2/hwclock/hwclock.8
+--- util-linux-ng-2.17.2/hwclock/hwclock.8.kzak	2016-01-07 11:26:51.473599613 +0100
++++ util-linux-ng-2.17.2/hwclock/hwclock.8	2016-01-07 11:29:10.272581080 +0100
+@@ -33,6 +33,12 @@ in Coordinated Universal Time.  See the
+ option.
+ 
+ .TP
++.BR \-c , \ \-\-compare
++Periodically compare the Hardware Clock to the System Time and output
++the difference every 10 seconds.  This will also print the frequency
++offset and tick.
++
++.TP
+ .B \-\-set
+ Set the Hardware Clock to the time given by the
+ .B \-\-date

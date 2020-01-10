@@ -1,0 +1,159 @@
+Based on usptream patch:
+
+commit f0bc3fa0cf45f484ea696ef063a10b65d1a45e13
+Author: Karel Zak <kzak@redhat.com>
+Date:   Thu Apr 29 12:25:06 2010 +0200
+
+    script: optionally compile with libutempter to update utmp
+    
+    Use --with-utempter to enable utempter support. The libutempter calls
+    /usr/libexec/utempter/utempter suid helper to update utmp and wtmp
+    files.
+    
+    Old version:
+        $ script
+        Script started, file is typescript
+    
+        $ who i am
+    
+        $ exit
+        Script done, file is typescript
+    
+    New version:
+        $ script
+        Script started, file is typescript
+    
+        $ who i am
+        kzak     pts/6        2010-04-29 12:30
+    
+        $ exit
+        Script done, file is typescript
+    
+    Addresses: http://bugzilla.redhat.com/show_bug.cgi?id=477753
+    Signed-off-by: Karel Zak <kzak@redhat.com>
+
+diff -up util-linux-ng-2.17.2/configure.ac.kzak util-linux-ng-2.17.2/configure.ac
+--- util-linux-ng-2.17.2/configure.ac.kzak	2010-03-22 10:08:00.000000000 +0100
++++ util-linux-ng-2.17.2/configure.ac	2010-05-03 14:15:28.000000000 +0200
+@@ -448,6 +448,21 @@ fi
+ AM_CONDITIONAL(USE_SLANG, test "x$use_slang" = xyes)
+ 
+ 
++AC_ARG_WITH([utempter],
++  AS_HELP_STRING([--with-utempter], [compile script(1) with libutempter]),
++  [], with_utempter=no
++)
++
++if test "x$with_utempter" = xyes; then
++  UTIL_CHECK_LIB(utempter, utempter_add_record)
++  if test "x$have_utempter" = xno; then
++    AC_MSG_ERROR([utempter selected but libutempter not found])
++  fi
++else
++  AM_CONDITIONAL(HAVE_UTEMPTER, false)
++fi
++
++
+ AC_LINK_IFELSE([AC_LANG_PROGRAM([[
+ #define _XOPEN_SOURCE
+ #include <unistd.h>
+diff -up util-linux-ng-2.17.2/misc-utils/Makefile.am.kzak util-linux-ng-2.17.2/misc-utils/Makefile.am
+--- util-linux-ng-2.17.2/misc-utils/Makefile.am.kzak	2010-03-22 09:05:42.000000000 +0100
++++ util-linux-ng-2.17.2/misc-utils/Makefile.am	2010-05-03 14:15:28.000000000 +0200
+@@ -11,6 +11,7 @@ usrbin_exec_PROGRAMS = cal ddate logger 
+ EXTRA_DIST += README.cal README.ddate README.namei README.namei2
+ 
+ mcookie_SOURCES = mcookie.c ../lib/md5.c
++script_LDADD =
+ 
+ usrbin_exec_SCRIPTS = chkdupexe
+ 
+@@ -64,7 +65,11 @@ endif
+ endif
+ 
+ if HAVE_UTIL
+-script_LDADD = -lutil
++script_LDADD += -lutil
++endif
++
++if HAVE_UTEMPTER
++script_LDADD += -lutempter
+ endif
+ 
+ if HAVE_NCURSES
+diff -up util-linux-ng-2.17.2/misc-utils/script.c.kzak util-linux-ng-2.17.2/misc-utils/script.c
+--- util-linux-ng-2.17.2/misc-utils/script.c.kzak	2010-02-04 12:53:56.000000000 +0100
++++ util-linux-ng-2.17.2/misc-utils/script.c	2010-05-03 14:15:28.000000000 +0200
+@@ -59,11 +59,14 @@
+ 
+ #include "nls.h"
+ 
+-
+ #ifdef HAVE_LIBUTIL
+ #include <pty.h>
+ #endif
+ 
++#ifdef HAVE_LIBUTEMPTER
++#include <utempter.h>
++#endif
++
+ void finish(int);
+ void done(void);
+ void fail(void);
+@@ -77,7 +80,7 @@ void doshell(void);
+ 
+ char	*shell;
+ FILE	*fscript;
+-int	master;
++int	master = -1;
+ int	slave;
+ int	child;
+ int	subchild;
+@@ -196,6 +199,9 @@ main(int argc, char **argv) {
+ 		printf(_("Script started, file is %s\n"), fname);
+ 	fixtty();
+ 
++#ifdef HAVE_LIBUTEMPTER
++	utempter_add_record(master, NULL);
++#endif
+ 	sigemptyset(&sa.sa_mask);
+ 	sa.sa_flags = 0;
+ 
+@@ -386,6 +392,8 @@ doshell() {
+ 	(void) dup2(slave, 2);
+ 	(void) close(slave);
+ 
++	master = -1;
++
+ 	shname = strrchr(shell, '/');
+ 	if (shname)
+ 		shname++;
+@@ -431,10 +439,16 @@ done() {
+ 		}
+ 		(void) fclose(fscript);
+ 		(void) close(master);
++
++		master = -1;
+ 	} else {
+ 		(void) tcsetattr(0, TCSADRAIN, &tt);
+ 		if (!qflg)
+ 			printf(_("Script done, file is %s\n"), fname);
++#ifdef HAVE_LIBUTEMPTER
++		if (master >= 0)
++			utempter_remove_record(master);
++#endif
+ 	}
+ 	exit(0);
+ }
+@@ -476,9 +490,11 @@ getmaster() {
+ 					return;
+ 				}
+ 				(void) close(master);
++				master = -1;
+ 			}
+ 		}
+ 	}
++	master = -1;
+ 	fprintf(stderr, _("Out of pty's\n"));
+ 	fail();
+ #endif /* not HAVE_LIBUTIL */

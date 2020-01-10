@@ -1,0 +1,137 @@
+diff -up util-linux-ng-2.17.2/disk-utils/Makefile.am.kzak util-linux-ng-2.17.2/disk-utils/Makefile.am
+--- util-linux-ng-2.17.2/disk-utils/Makefile.am.kzak	2010-03-18 23:11:23.000000000 +0100
++++ util-linux-ng-2.17.2/disk-utils/Makefile.am	2016-01-04 13:33:15.991840291 +0100
+@@ -13,7 +13,7 @@ fsck_minix_SOURCES = fsck.minix.c minix.
+ mkfs_minix_SOURCES = mkfs.minix.c minix.h $(utils_common)
+ mkfs_bfs_SOURCES = mkfs.bfs.c $(utils_common)
+ 
+-mkswap_SOURCES = mkswap.c $(utils_common) ../lib/wholedisk.c
++mkswap_SOURCES = mkswap.c $(utils_common) ../lib/wholedisk.c ../lib/sysfs.c ../lib/at.c
+ mkswap_LDADD =
+ mkswap_CFLAGS = $(AM_CFLAGS)
+ 
+diff -up util-linux-ng-2.17.2/fdisk/Makefile.am.kzak util-linux-ng-2.17.2/fdisk/Makefile.am
+--- util-linux-ng-2.17.2/fdisk/Makefile.am.kzak	2016-01-04 13:33:15.926840769 +0100
++++ util-linux-ng-2.17.2/fdisk/Makefile.am	2016-01-04 13:33:15.991840291 +0100
+@@ -3,7 +3,8 @@ include $(top_srcdir)/config/include-Mak
+ EXTRA_DIST = README.fdisk README.cfdisk sfdisk.examples partitiontype.c
+ 
+ fdisk_common = i386_sys_types.c common.h gpt.c gpt.h \
+-	../lib/blkdev.c ../lib/wholedisk.c
++	../lib/blkdev.c ../lib/wholedisk.c \
++	../lib/sysfs.c ../lib/at.c
+ 
+ if LINUX
+ fdisk_common += ../lib/linux_version.c
+diff -up util-linux-ng-2.17.2/include/sysfs.h.kzak util-linux-ng-2.17.2/include/sysfs.h
+--- util-linux-ng-2.17.2/include/sysfs.h.kzak	2016-01-04 13:33:15.903840938 +0100
++++ util-linux-ng-2.17.2/include/sysfs.h	2016-01-04 13:33:15.991840291 +0100
+@@ -65,4 +65,8 @@ extern int sysfs_is_partition_dirent(DIR
+ 
+ extern int sysfs_devno_to_wholedisk(dev_t dev, char *diskname,
+             size_t len, dev_t *diskdevno);
++
++extern int sysfs_devno_is_wholedisk(dev_t devno);
++extern int sysfs_devno_is_lvm_private(dev_t devno);
++
+ #endif /* UTIL_LINUX_SYSFS_H */
+diff -up util-linux-ng-2.17.2/lib/Makefile.am.kzak util-linux-ng-2.17.2/lib/Makefile.am
+--- util-linux-ng-2.17.2/lib/Makefile.am.kzak	2010-03-22 09:05:42.000000000 +0100
++++ util-linux-ng-2.17.2/lib/Makefile.am	2016-01-04 13:34:27.627312932 +0100
+@@ -6,7 +6,7 @@ noinst_PROGRAMS = test_blkdev test_ismou
+ 
+ test_blkdev_SOURCES = blkdev.c
+ test_ismounted_SOURCES = ismounted.c
+-test_wholedisk_SOURCES = wholedisk.c
++test_wholedisk_SOURCES = wholedisk.c sysfs.c at.c
+ 
+ if LINUX
+ test_blkdev_SOURCES += linux_version.c
+diff -up util-linux-ng-2.17.2/lib/sysfs.c.kzak util-linux-ng-2.17.2/lib/sysfs.c
+--- util-linux-ng-2.17.2/lib/sysfs.c.kzak	2016-01-04 13:33:15.903840938 +0100
++++ util-linux-ng-2.17.2/lib/sysfs.c	2016-01-04 13:33:15.991840291 +0100
+@@ -638,6 +638,50 @@ err:
+     return -1;
+ }
+ 
++
++/*
++ * Return 0 or 1, or < 0 in case of error
++ */
++int sysfs_devno_is_wholedisk(dev_t devno)
++{
++	dev_t disk;
++
++	if (sysfs_devno_to_wholedisk(devno, NULL, 0, &disk) != 0)
++		return -1;
++
++	return devno == disk;
++}
++
++
++/*
++ * Returns 1 if the device is private LVM device.
++ */
++int sysfs_devno_is_lvm_private(dev_t devno)
++{
++	struct sysfs_cxt cxt = UL_SYSFSCXT_EMPTY;
++	char *uuid = NULL;
++	int rc = 0;
++
++	if (sysfs_init(&cxt, devno, NULL) != 0)
++		return 0;
++
++	uuid = sysfs_strdup(&cxt, "dm/uuid");
++
++	/* Private LVM devices use "LVM-<uuid>-<name>" uuid format (important
++	 * is the "LVM" prefix and "-<name>" postfix).
++	 */
++	if (uuid && strncmp(uuid, "LVM-", 4) == 0) {
++		char *p = strrchr(uuid + 4, '-');
++
++		if (p && *(p + 1))
++			rc = 1;
++	}
++
++	sysfs_deinit(&cxt);
++	free(uuid);
++	return rc;
++}
++
+ #ifdef TEST_PROGRAM_SYSFS
+ #include <errno.h>
+ #include <err.h>
+diff -up util-linux-ng-2.17.2/lib/wholedisk.c.kzak util-linux-ng-2.17.2/lib/wholedisk.c
+--- util-linux-ng-2.17.2/lib/wholedisk.c.kzak	2016-01-04 13:33:15.942840651 +0100
++++ util-linux-ng-2.17.2/lib/wholedisk.c	2016-01-04 13:33:15.992840284 +0100
+@@ -4,6 +4,7 @@
+ #include <ctype.h>
+ 
+ #include "blkdev.h"
++#include "sysfs.h"
+ #include "wholedisk.h"
+ 
+ int is_whole_disk_fd(int fd, const char *name)
+@@ -30,16 +31,13 @@ int is_whole_disk_fd(int fd, const char
+ 
+ int is_whole_disk(const char *name)
+ {
+-	int fd = -1, res = 0;
+-#ifdef HDIO_GETGEO
+-	fd = open(name, O_RDONLY);
+-	if (fd != -1)
+-#endif
+-		res = is_whole_disk_fd(fd, name);
++	dev_t devno = sysfs_devname_to_devno(name, NULL);
++
++	if (sysfs_devno_is_lvm_private(devno) ||
++	    sysfs_devno_is_wholedisk(devno) <= 0)
++		return 0;
+ 
+-	if (fd != -1)
+-		close(fd);
+-	return res;
++	return 1;
+ }
+ 
+ #ifdef TEST_PROGRAM

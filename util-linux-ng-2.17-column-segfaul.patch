@@ -1,0 +1,16 @@
+diff -up util-linux-ng-2.17.2/text-utils/column.c.kzak util-linux-ng-2.17.2/text-utils/column.c
+--- util-linux-ng-2.17.2/text-utils/column.c.kzak	2010-02-04 12:54:00.000000000 +0100
++++ util-linux-ng-2.17.2/text-utils/column.c	2011-01-12 11:21:23.000000000 +0100
+@@ -271,8 +271,10 @@ maketbl()
+ 		for (i = lens[coloff] - t->len[coloff] + 2; i > 0; i--)
+ 		    putwchar(' ');
+ 	    }
+-	    fputws(t->list[coloff], stdout);
+-	    putwchar('\n');
++	    if (coloff < t->cols) {
++		fputws(t->list[coloff], stdout);
++		putwchar('\n');
++	    }
+ 	}
+ }
+ 
