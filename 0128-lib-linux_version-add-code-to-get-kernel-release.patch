@@ -1,9 +1,9 @@
-From 487efd28029b22b706550a568f8f074cb03c6078 Mon Sep 17 00:00:00 2001
+From 36f645f07d1ed731056d2ecce5af574cc9001962 Mon Sep 17 00:00:00 2001
 From: Karel Zak <kzak@redhat.com>
 Date: Mon, 2 Jan 2017 12:03:01 +0100
-Subject: [PATCH 122/123] lib/linux_version: add code to get kernel release
+Subject: [PATCH 128/129] lib/linux_version: add code to get kernel release
 
-Addresses: https://bugzilla.redhat.com/show_bug.cgi?id=1413664
+Addresses: https://bugzilla.redhat.com/show_bug.cgi?id=1349192
 Signed-off-by: Karel Zak <kzak@redhat.com>
 ---
  include/linux_version.h |  1 +

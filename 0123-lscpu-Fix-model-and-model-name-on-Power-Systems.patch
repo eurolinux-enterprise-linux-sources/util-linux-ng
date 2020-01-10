@@ -1,0 +1,84 @@
+From f3d456796ee030d9429ef0895ec72825ac960e20 Mon Sep 17 00:00:00 2001
+From: Vasant Hegde <hegdevasant@linux.vnet.ibm.com>
+Date: Mon, 14 Mar 2016 20:18:07 +0530
+Subject: [PATCH 123/127] lscpu: Fix model and model name on Power Systems
+
+On Power System, lspcu presently displays system model number instead of
+processor model name. 'model' tag in cpuinfo contains system model name,
+not processor model. Instead it uses 'cpu' tag for processor model name.
+Also it uses 'revision' tag for processor model.
+
+Fix lspcu so that it displays processor model number. Also display processor
+model name.
+
+cpuinfo output on Power System:
+  ...
+  ...
+
+  processor	: 127
+  cpu		: POWER8E (raw), altivec supported
+  clock		: 4322.000000MHz
+  revision	: 2.1 (pvr 004b 0201)
+
+  timebase	: 512000000
+  platform	: PowerNV
+  model		: 8286-42A
+  machine	: PowerNV 8286-42A
+  firmware	: OPAL
+
+Output without this patch:
+  Architecture:          ppc64le
+  Byte Order:            Little Endian
+  CPU(s):                128
+  On-line CPU(s) list:   0-127
+  Thread(s) per core:    8
+  Core(s) per socket:    4
+  Socket(s):             4
+  NUMA node(s):          4
+  Model:                 8286-42A
+  ...
+  ...
+
+Output with this patch:
+  Architecture:          ppc64le
+  Byte Order:            Little Endian
+  CPU(s):                128
+  On-line CPU(s) list:   0-127
+  Thread(s) per core:    8
+  Core(s) per socket:    4
+  Socket(s):             4
+  NUMA node(s):          4
+  Model:                 2.1 (pvr 004b 0201)
+  Model name:            POWER8E (raw), altivec supported
+  ...
+  ...
+
+Addresses: https://bugzilla.redhat.com/show_bug.cgi?id=1319642
+Upstream: https://git.kernel.org/cgit/utils/util-linux/util-linux.git/commit/?id=3ac03fe4d20558b55635a048d7f2fb0f5e85ee2a
+Signed-off-by: Karel Zak <kzak@redhat.com>
+Signed-off-by: Vasant Hegde <hegdevasant@linux.vnet.ibm.com>
+---
+ sys-utils/lscpu.c | 5 +++++
+ 1 file changed, 5 insertions(+)
+
+diff --git a/sys-utils/lscpu.c b/sys-utils/lscpu.c
+index bb2f531..1515798 100644
+--- a/sys-utils/lscpu.c
++++ b/sys-utils/lscpu.c
+@@ -364,8 +364,13 @@ read_basicinfo(struct lscpu_desc *desc, struct lscpu_modifier *mod)
+ 		else if (lookup(buf, "vendor_id", &desc->vendor)) ;
+ 		else if (lookup(buf, "family", &desc->family)) ;
+ 		else if (lookup(buf, "cpu family", &desc->family)) ;
++#if defined(__powerpc__) || defined(__powerpc64__)
++		else if (lookup(buf, "revision", &desc->model)) ;
++		else if (lookup(buf, "cpu", &desc->modelname)) ;
++#else
+ 		else if (lookup(buf, "model", &desc->model)) ;
+ 		else if (lookup(buf, "model name", &desc->modelname)) ;
++#endif
+ 		else if (lookup(buf, "stepping", &desc->stepping)) ;
+ 		else if (lookup(buf, "cpu MHz", &desc->mhz)) ;
+ 		else if (lookup(buf, "flags", &desc->flags)) ;		/* x86 */
+-- 
+2.7.4
+

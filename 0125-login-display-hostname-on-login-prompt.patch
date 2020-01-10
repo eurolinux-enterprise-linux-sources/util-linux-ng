@@ -1,0 +1,54 @@
+From 560d8f82586554e7263345f02611498c4f106d1c Mon Sep 17 00:00:00 2001
+From: Karel Zak <kzak@redhat.com>
+Date: Thu, 27 Oct 2016 16:31:10 +0200
+Subject: [PATCH 125/127] login: display hostname on login prompt
+
+Upstream: http://github.com/karelzak/util-linux/commit/92e386cac11b128ed2386df555478a79c6f5998e
+Addresses: https://bugzilla.redhat.com/show_bug.cgi?id=1310035
+Signed-off-by: Karel Zak <kzak@redhat.com>
+---
+ login-utils/login.c | 21 ++++++++++++++++++++-
+ 1 file changed, 20 insertions(+), 1 deletion(-)
+
+diff --git a/login-utils/login.c b/login-utils/login.c
+index fed9a0a..3e7e88f 100644
+--- a/login-utils/login.c
++++ b/login-utils/login.c
+@@ -361,6 +361,25 @@ get_pam_username(pam_handle_t *pamh, char **name)
+ }
+ #endif
+ 
++#ifdef HAVE_SECURITY_PAM_MISC_H
++static const char *loginpam_get_prompt()
++{
++	char *prompt, *dflt_prompt = _("login: ");
++	size_t sz;
++
++	if (!*thishost)
++		return dflt_prompt;
++
++	sz = strlen(thishost) + 1 + strlen(dflt_prompt) + 1;
++	prompt = malloc(sz);
++	if (!prompt)
++		return dflt_prompt;
++
++	snprintf(prompt, sz, "%s %s", thishost, dflt_prompt);
++	return prompt;
++}
++#endif
++
+ /*
+  * We need to check effective UID/GID. For example $HOME could be on root
+  * squashed NFS or on NFS with UID mapping and access(2) uses real UID/GID.
+@@ -601,7 +620,7 @@ main(int argc, char **argv)
+      * PAM doesn't have an interface to specify the "Password: " string
+      * (yet).
+      */
+-    retcode = pam_set_item(pamh, PAM_USER_PROMPT, _("login: "));
++    retcode = pam_set_item(pamh, PAM_USER_PROMPT, loginpam_get_prompt());
+     PAM_FAIL_CHECK;
+ 
+ #if 0
+-- 
+2.7.4
+

@@ -2,7 +2,7 @@
 Summary: A collection of basic system utilities
 Name: util-linux-ng
 Version: 2.17.2
-Release: 12.24%{?dist}.3
+Release: 12.28%{?dist}
 License: GPLv1+ and GPLv2 and GPLv2+ and LGPLv2+ and MIT and BSD with advertising and Public Domain
 Group: System Environment/Base
 URL: ftp://ftp.kernel.org/pub/linux/utils/util-linux-ng
@@ -373,10 +373,25 @@ Patch120: util-linux-ng-2.17-fdisk-reorder.patch
 # 1316864 ipcmk fails with "Invalid argument" while creating a shared memory of size 2 GiB
 Patch121: util-linux-ng-2.17-ipcmk-size.patch
 
-## RHEL6.8.Z
-# RHEL6.8 check for 642 kernel without specify dependence in spec file
-Patch122: 0122-lib-linux_version-add-code-to-get-kernel-release.patch
-Patch123: 0123-login-check-kernel-version-for-proper-vhangup.patch
+#
+# RHEL6.9
+#
+# 1320360 - lscpu shows wrong "Virtualization type" on Xen paravirtualization guest (PV)
+Patch122: 0122-lscpu-correct-the-Virtualization-type-on-Xen-DomU-PV.patch
+# 1319642 - [util-linux-ng] lscpu: Fix model and model name on Power Systems
+Patch123: 0123-lscpu-Fix-model-and-model-name-on-Power-Systems.patch
+# 1319642 - [util-linux-ng] lscpu: Fix model and model name on Power Systems
+Patch124: 0124-sfdisk-remove-useless-CDROM-detection-for-s.patch
+# 1310035 - Hostname not being displayed besides the telnet login prompt
+Patch125: 0125-login-display-hostname-on-login-prompt.patch
+# 1310317 - fdisk -l fdisk double open fd
+Patch126: 0126-fdisk-l-double-open-fd.patch
+# 1337478 - wrong error handler and/or error message on fdisk call as not root user
+Patch127: 0127-fdisk-follow-errno-on-error-message.patch
+# 1349192 - RHEL6.8 util-linux-ng requires 642 kernel, but does not specify it as a dependency
+Patch128: 0128-lib-linux_version-add-code-to-get-kernel-release.patch
+# 1023655 - 'pppd' hangs (uninterruptable) when run on tty
+Patch129: 0129-login-check-kernel-version-for-proper-vhangup.patch
 
 %description
 The util-linux-ng package contains a large variety of low-level system
@@ -590,6 +605,12 @@ cp %{SOURCE8} %{SOURCE9} .
 %patch121 -p1
 %patch122 -p1
 %patch123 -p1
+%patch124 -p1
+%patch125 -p1
+%patch126 -p1
+%patch127 -p1
+%patch128 -p1
+%patch129 -p1
 
 %build
 unset LINGUAS || :
@@ -1141,13 +1162,22 @@ fi
 
 
 %changelog
-* Thu Jan 19 2017 Karel Zak <kzak@redhat.com> 2.17.2-12.24.el6_8.3
-- update spec file
+* Tue Jan 03 2017 Karel Zak <kzak@redhat.com> 2.17.2-12.28
+- remove dependence on kernel (#1349192)
 
-* Thu Jan 19 2017 Karel Zak <kzak@redhat.com> 2.17.2-12.24.el6_8.2
-- fix #1413664 - RHEL6.8 check for 642 kernel without specify dependence in spec file
+* Mon Jan 02 2017 Karel Zak <kzak@redhat.com> 2.17.2-12.27
+- fix #1349192 - RHEL6.8 util-linux-ng requires 642 kernel, but does not specify it as a dependency
+- fix #1023655 - 'pppd' hangs (uninterruptable) when run on tty
 
-* Wed Oct 12 2016 Karel Zak <kzak@redhat.com> 2.17.2-12.24.el6_8.1
+* Mon Oct 31 2016 Karel Zak <kzak@redhat.com> 2.17.2-12.26
+- fix #1320360 - lscpu shows wrong "Virtualization type" on Xen paravirtualization guest (PV)
+- fix #1319642 - [util-linux-ng] lscpu: Fix model and model name on Power Systems
+- fix #1319642 - [util-linux-ng] lscpu: Fix model and model name on Power Systems
+- fix #1310035 - Hostname not being displayed besides the telnet login prompt
+- fix #1310317 - fdisk -l fdisk double open fd
+- fix #1337478 - wrong error handler and/or error message on fdisk call as not root user
+
+* Wed Oct 12 2016 Karel Zak <kzak@redhat.com> 2.17.2-12.25
 - fix #1349192 - RHEL6.8 util-linux-ng requires 642 kernel, but does not specify it as a dependency
 
 * Tue Mar 15 2016 Karel Zak <kzak@redhat.com> 2.17.2-12.24

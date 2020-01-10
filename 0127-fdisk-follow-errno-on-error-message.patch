@@ -1,0 +1,75 @@
+From 32fb0ed98af28db49f546119b4d9029d075f87dd Mon Sep 17 00:00:00 2001
+From: Karel Zak <kzak@redhat.com>
+Date: Mon, 31 Oct 2016 11:02:54 +0100
+Subject: [PATCH 127/127] fdisk: follow errno on error message
+
+* use err.h stuff
+* replace open-error message to keep it translated
+
+Addresses: https://bugzilla.redhat.com/show_bug.cgi?id=1337478
+Signed-off-by: Karel Zak <kzak@redhat.com>
+---
+ fdisk/fdisk.c | 19 ++++++++++---------
+ 1 file changed, 10 insertions(+), 9 deletions(-)
+
+diff --git a/fdisk/fdisk.c b/fdisk/fdisk.c
+index 91d737a..2a5e15b 100644
+--- a/fdisk/fdisk.c
++++ b/fdisk/fdisk.c
+@@ -21,6 +21,7 @@
+ #include <sys/time.h>
+ #include <time.h>
+ #include <limits.h>
++#include <err.h>
+ 
+ #include "nls.h"
+ #include "blkdev.h"
+@@ -288,36 +289,36 @@ void fatal(enum failure why) {
+ "\n");
+ 			break;
+ 		case unable_to_open:
++			/* let's use message already translated by po/ stuff */
+ 			snprintf(error, sizeof(error),
+-				 _("Unable to open %s\n"), disk_device);
++				 _("cannot open %s"), disk_device);
+ 			break;
+ 		case unable_to_read:
+ 			snprintf(error, sizeof(error),
+-				 _("Unable to read %s\n"), disk_device);
++				 _("Unable to read %s"), disk_device);
+ 			break;
+ 		case unable_to_seek:
+ 			snprintf(error, sizeof(error),
+-				_("Unable to seek on %s\n"),disk_device);
++				_("Unable to seek on %s"),disk_device);
+ 			break;
+ 		case unable_to_write:
+ 			snprintf(error, sizeof(error),
+-				_("Unable to write %s\n"), disk_device);
++				_("Unable to write %s"), disk_device);
+ 			break;
+ 		case ioctl_error:
+ 			snprintf(error, sizeof(error),
+-				 _("BLKGETSIZE ioctl failed on %s\n"),
++				 _("BLKGETSIZE ioctl failed on %s"),
+ 				disk_device);
+ 			break;
+ 		case out_of_memory:
+-			message = _("Unable to allocate any more memory\n");
++			message = _("Unable to allocate any more memory");
+ 			break;
+ 		default:
+-			message = _("Fatal error\n");
++			message = _("Fatal error");
+ 	}
+ 
+ 	fputc('\n', stderr);
+-	fputs(message, stderr);
+-	exit(rc);
++	err(rc, message);
+ }
+ 
+ static void
+-- 
+2.7.4
+
